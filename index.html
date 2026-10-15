@@ -213,6 +213,18 @@ input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .seats li .k{font:600 11px var(--f-mono);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
 .seats li.empty{border-style:dashed;color:var(--muted);background:transparent}
 .roomtag{font:600 12px var(--f-mono);letter-spacing:.12em;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:4px 7px}
+.hostctrls{display:grid;gap:14px;padding-top:4px}
+.opt{display:grid;gap:6px}
+.opt .lbl{font:600 11px var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.seg{display:flex;flex-wrap:wrap}
+.seg button{border:1px solid var(--line);background:var(--panel);padding:7px 12px;font-weight:600;cursor:pointer;margin-left:-1px}
+.seg button:first-child{border-radius:6px 0 0 6px;margin-left:0}
+.seg button:last-child{border-radius:0 6px 6px 0}
+.seg button[aria-checked="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);position:relative}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
+.check{display:flex;gap:9px;align-items:flex-start;font-size:14px;max-width:60ch;cursor:pointer}
+.check input{margin-top:3px;accent-color:var(--accent)}
+.hint{color:var(--muted);font-size:13px}
 .bot{font:600 10px var(--f-mono);color:var(--muted);border:1px solid var(--line);border-radius:3px;padding:0 4px;margin-left:6px;text-transform:uppercase;letter-spacing:.06em}
 
 </style>
@@ -269,9 +281,10 @@ input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
     </div>
     <p class="roomhint" id="roomhint"></p>
     <ol class="seats" id="seats"></ol>
-    <div class="row" id="hostctrls">
-      <label for="nbots">Robôs extra</label><select id="nbots"></select>
-      <button id="startroom" class="btn primary">Começar partida</button>
+    <div class="hostctrls" id="hostctrls">
+      <div class="opt"><span class="lbl" id="botslbl">Robôs na partida</span><div class="seg" id="botseg" role="radiogroup" aria-labelledby="botslbl"></div></div>
+      <label class="check"><input type="checkbox" id="botfill"> <span>Se alguém perder a ligação a meio, um robô fica com o lugar. Sem esta opção, essa pessoa sai da partida.</span></label>
+      <div class="row"><button id="startroom" class="btn primary">Começar partida</button><span class="hint" id="starthint"></span></div>
     </div>
   </section>
 
@@ -495,7 +508,7 @@ const ABORT=Symbol('abort');
 const NOPE_MS=6000;
 let CUR=null, GAME_SEQ=0;
 
-function createGame(seats){
+function createGame(seats,opts={}){
   let nid=0; const mk=t=>({id:nid++,t});
   const pool=[];
   for(const t in COUNTS) for(let i=0;i<COUNTS[t];i++) pool.push(mk(t));
@@ -511,7 +524,7 @@ function createGame(seats){
            know:{},fresh:{},boomSeq:0,pending:new Set(),remote:new Map()};
   const api={S};
   let askSeq=0, drawQueued=false;
-  const chk=()=>{ if(CUR!==api) throw ABORT; };
+  const chk=()=>{ if(CUR!==api||S.over) throw ABORT; };
   const wait=async ms=>{ await sleep(ms); chk(); };
   const sortHand=p=>p.hand.sort((a,b)=>ORDER.indexOf(a.t)-ORDER.indexOf(b.t));
   players.forEach(sortHand);
@@ -519,7 +532,7 @@ function createGame(seats){
   /* vistas: cada jogador só vê a sua mão */
   function viewFor(v){
     return {gameId:S.id,me:v,
-      players:S.players.map(p=>({name:p.name,count:p.hand.length,alive:p.alive,bot:p.kind==='bot'})),
+      players:S.players.map(p=>({name:p.name,count:p.hand.length,alive:p.alive,bot:p.kind==='bot',left:p.kind==='gone'})),
       hand:S.players[v].hand, deck:S.deck.length, bombs:bombsLeft(), discardTop:S.discard[S.discard.length-1]||null,
       cur:S.cur, turns:S.turns, over:S.over, winner:S.winner, boomSeq:S.boomSeq, fresh:S.fresh[v]??null,
       log:S.log.slice(0,50).map(e=>({t:e.t,kind:e.kind,html:e.html[v]}))};
@@ -566,12 +579,31 @@ function createGame(seats){
   api.onAnswer=(conn,id,value)=>{ const h=S.remote.get(id); if(!h||S.players[h.pi].conn!==conn) return; h.finish(value); };
   api.onDisconnect=conn=>{
     const pi=S.players.findIndex(p=>p.conn===conn); if(pi<0) return;
-    const p=S.players[pi]; p.kind='bot'; p.conn=null;
-    L(()=>`<b>${esc(p.name)}</b> perdeu a ligação. Um robô fica com o lugar.`,'muted');
+    const p=S.players[pi]; p.conn=null;
+    if(opts.botFill||!p.alive||S.over){
+      p.kind='bot';
+      if(p.alive&&!S.over) L(()=>`<b>${esc(p.name)}</b> perdeu a ligação. Um robô fica com o lugar.`,'muted');
+      [...S.pending].filter(h=>h.pi===pi).forEach(h=>h.abort(null));
+      return;
+    }
+    // sai da partida: as cartas vão para o descarte e retira-se uma poção, para haver sempre jogadores − 1
+    p.kind='gone'; p.alive=false; S.discard.push(...p.hand); p.hand=[];
+    const bi=S.deck.findIndex(c=>c.t==='bomb'); if(bi>=0) S.deck.splice(bi,1);
+    S.know={};
+    L(()=>`<b>${esc(p.name)}</b> perdeu a ligação e saiu da partida. Saiu também uma poção do baralho.`,'muted');
+    const al=aliveIdx();
+    if(al.length===1){
+      S.over=true; S.winner=al[0];
+      L(v=>`${who(al[0],v)} ${vb(al[0],v,'ganhaste','ganhou')} a partida.`);
+      api.abortAll(); return;
+    }
+    const wasTurn=S.cur===pi;
     [...S.pending].filter(h=>h.pi===pi).forEach(h=>h.abort(null));
+    if(wasTurn) startTurnOf(nextAlive(pi),1);
   };
   api.abortAll=()=>{ [...S.pending].forEach(h=>h.abort(null)); };
-  api.seats=()=>S.players.map(p=>({name:p.name,kind:p.kind,conn:p.conn}));
+  api.seats=()=>S.players.filter(p=>p.kind!=='gone').map(p=>({name:p.name,kind:p.kind==='remote'&&!p.conn?'bot':p.kind,conn:p.conn}));
+  api.opts=opts;
 
   /* memória dos robôs sobre o topo do baralho */
   function knownTop(pi){
@@ -758,12 +790,20 @@ function createGame(seats){
   return api;
 }
 
-function startGame(seats){
+function startGame(seats,opts){
   const old=CUR;
   CUR=null; old?.abortAll();
   UI.turnResolve=null; closeModal(null);
-  CUR=createGame(seats);
+  CUR=createGame(seats,opts||{botFill:!!NET.botFill});
   CUR.start();
+}
+function restartGame(){
+  const seats=CUR.seats(), opts=CUR.opts;
+  if(seats.length<2){
+    // ficaste sozinho: volta à sala para esperar por novos colegas
+    stopGame(); NET.started=false; UI.view=null; showScreen('room'); renderRoom(); broadcastLobby(); return;
+  }
+  startGame(seats,opts);
 }
 function stopGame(){ const old=CUR; CUR=null; old?.abortAll(); }
 
@@ -815,7 +855,7 @@ function applyView(view){
     openModal({kicker:'Fim da experiência',title:won?'Ganhaste!':`${esc(wn)} ganhou`,tone:won?'':'hazard',
       body:won?'És o último cientista inteiro no laboratório.':(canRestart?'Podes começar outra partida com os mesmos jogadores.':'O anfitrião pode começar outra partida.'),
       buttons:canRestart?[{label:'Jogar outra vez',value:'again',primary:true},{label:'Ver a mesa',value:'stay'}]:[{label:'Ver a mesa',value:'stay',primary:true}]})
-    .then(v=>{ UI.overOpen=false; if(v==='again'&&CUR) startGame(CUR.seats().map(s=>s.kind==='remote'&&!s.conn?{...s,kind:'bot'}:s)); });
+    .then(v=>{ UI.overOpen=false; if(v==='again'&&CUR) restartGame(); });
   }
 }
 
@@ -831,7 +871,7 @@ function renderGame(){
   const order=V.players.map((_,i)=>(V.me+1+i)%V.players.length).filter(i=>i!==V.me);
   $('rivals').innerHTML=order.map(i=>{
     const p=V.players[i], turn=V.cur===i&&p.alive&&!V.over;
-    const state=!p.alive?'Explodiu':turn?(V.turns>1?`A jogar · ${V.turns} turnos`:'A jogar'):'À espera';
+    const state=!p.alive?(p.left?'Saiu':'Explodiu'):turn?(V.turns>1?`A jogar · ${V.turns} turnos`:'A jogar'):'À espera';
     const minis=Array.from({length:Math.min(p.count,12)},()=>'<span class="mini"></span>').join('');
     return `<div class="station ${turn?'turn':''} ${p.alive?'':'out'}"><div class="row"><span class="nm">${esc(p.name)}${p.bot?'<span class="bot">robô</span>':''}</span><span class="state">${state}</span></div>
       <div class="minis">${minis}<span class="count">${p.count} ${p.count===1?'carta':'cartas'}</span></div></div>`;
@@ -905,7 +945,7 @@ $('draw').onclick=humanDraw; $('deck').onclick=humanDraw;
 /* ---------- rede (PeerJS, ligação direta entre navegadores) ---------- */
 const PREFIX='lab-instavel-v1-';
 const CODE_ABC='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const NET={role:null,peer:null,code:null,guests:[],hostConn:null,started:false};
+const NET={role:null,peer:null,code:null,guests:[],hostConn:null,started:false,bots:0,botFill:false};
 
 function safeSend(conn,msg){ try{ if(conn&&conn.open) conn.send(msg); }catch(e){} }
 function cleanName(s){ return String(s||'').replace(/\s+/g,' ').trim().slice(0,16)||'Cientista'; }
@@ -921,7 +961,7 @@ function errText(err){
 function teardown(){
   stopGame();
   try{ NET.peer?.destroy(); }catch(e){}
-  Object.assign(NET,{role:null,peer:null,code:null,guests:[],hostConn:null,started:false});
+  Object.assign(NET,{role:null,peer:null,code:null,guests:[],hostConn:null,started:false,bots:0,botFill:false});
   UI.view=null; UI.turnResolve=null; closeModal(null);
 }
 function backToLobby(msg){ teardown(); showScreen('lobby'); lobbyMsg(msg||''); }
@@ -999,19 +1039,30 @@ function renderRoom(){
   for(let i=names.length;i<4;i++){ const li=document.createElement('li'); li.className='empty'; li.textContent='Lugar livre'; seats.append(li); }
   $('hostctrls').hidden=!host;
   if(host){
-    const humans=names.length, sel=$('nbots'), prev=+sel.value||0, max=4-humans, min=humans<2?1:0;
-    sel.innerHTML=''; for(let k=min;k<=max;k++) sel.append(new Option(String(k),String(k)));
-    sel.value=String(Math.max(min,Math.min(prev,max)));
+    const humans=names.length, max=4-humans;
+    NET.bots=Math.min(NET.bots||0,max);
+    const seg=$('botseg'); seg.innerHTML='';
+    for(let k=0;k<=3;k++){
+      const b=document.createElement('button'); b.type='button'; b.setAttribute('role','radio');
+      b.setAttribute('aria-checked',String(NET.bots===k));
+      b.textContent=k===0?'Sem robôs':k===1?'1 robô':`${k} robôs`;
+      b.disabled=k>max; b.onclick=()=>{ NET.bots=k; renderRoom(); };
+      seg.append(b);
+    }
+    const total=humans+NET.bots;
+    $('startroom').disabled=total<2;
+    $('starthint').textContent=total<2?'Precisas de pelo menos mais um colega ou de um robô.'
+      :`${total} jogadores${NET.bots?`, ${NET.bots} ${NET.bots===1?'deles é robô':'deles são robôs'}`:', todos pessoas'}.`;
     $('roomhint').textContent=humans<2
-      ? 'Envia o código aos teus colegas. Eles abrem este mesmo site e escolhem "Entrar numa sala". Podes também começar já com robôs.'
+      ? 'Envia o código aos teus colegas. Eles abrem este mesmo site e escolhem "Entrar numa sala".'
       : 'Quando estiverem todos, carrega em Começar partida.';
   } else $('roomhint').textContent='Estás ligado. A partida começa quando o anfitrião carregar em Começar.';
 }
 function startRoom(){
   if(NET.role!=='host') return;
-  const bots=+$('nbots').value||0;
+  const bots=Math.min(NET.bots||0,3-NET.guests.length);
   if(1+NET.guests.length+bots<2) return;
-  NET.started=true;
+  NET.started=true; NET.botFill=$('botfill').checked;
   const used=new Set([myName(),...NET.guests.map(g=>g.name)]);
   const botNames=BOTS.filter(n=>!used.has(n)).slice(0,bots);
   startGame([{name:myName(),kind:'local'},...NET.guests.map(g=>({name:g.name,kind:'remote',conn:g.conn})),...botNames.map(n=>({name:n,kind:'bot'}))]);

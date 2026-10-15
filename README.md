@@ -9,9 +9,9 @@ Joga com 2 a 4 pessoas, cada uma no seu computador, ou sozinho contra robôs. N�
 1. Abre o site e escreve o teu nome.
 2. Carrega em **Criar sala** e envia o código de 5 letras aos teus colegas.
 3. Eles abrem o mesmo site, escrevem o código e carregam em **Entrar**.
-4. Quando estiverem todos, o anfitrião carrega em **Começar partida**. Os lugares vazios podem ser ocupados por robôs.
+4. O anfitrião escolhe se quer robôs na partida (de "Sem robôs" até 3) e carrega em **Começar partida**.
 
-A janela de quem cria a sala tem de ficar aberta durante a partida, porque é lá que o jogo corre. Se um colega sair a meio, um robô fica com o lugar dele.
+A janela de quem cria a sala tem de ficar aberta durante a partida, porque é lá que o jogo corre. Se um colega perder a ligação a meio, sai da partida. Se o anfitrião tiver ligado a opção de substituição, um robô fica com o lugar dele.
 
 ## Regras
 
