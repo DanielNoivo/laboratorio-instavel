@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Laboratório Instável: jogo de cartas no navegador. Evita as poções instáveis e sê o último cientista inteiro.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M12 3h8M13 3v9L5 26a3 3 0 0 0 3 4h16a3 3 0 0 0 3-4l-8-14V3' fill='%23e6ebe8' stroke='%232a47c9' stroke-width='2.4' stroke-linejoin='round'/%3E%3Cpath d='M8 22h16l3 5H5z' fill='%23cf3f24'/%3E%3C/svg%3E">
+<title>Laboratório Instável</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: a lab bench seen from above. Rival stations on top, the shared sample deck and the lab notebook in the middle, your hand of periodic-table-style cards at the bottom. */
+:root{
+  --bg:#e6ebe8; --panel:#f7f9f8; --ink:#14201b; --muted:#56665e; --line:#c6d0cb;
+  --accent:#2a47c9; --accent-ink:#ffffff;
+  --g-hazard:#cf3f24; --g-safe:#1c8656; --g-action:#2a47c9; --g-info:#7444bd; --g-nope:#b07806; --g-rat:#6f675c;
+  --back-a:#1d2a24; --back-b:#26352e; --back-ink:#e9efe9; --coat:#ffffff;
+  --f-display:"Bricolage Grotesque", "Arial Narrow", system-ui, sans-serif;
+  --f-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0e1412; --panel:#17201c; --ink:#e4ebe7; --muted:#93a39b; --line:#2b3732;
+  --accent:#8aa0ff; --accent-ink:#0e1412;
+  --g-hazard:#ff7a5c; --g-safe:#4fcf8d; --g-action:#8aa0ff; --g-info:#b893ff; --g-nope:#f0b64a; --g-rat:#b5ab9c;
+  --back-a:#22302a; --back-b:#2b3c34; --back-ink:#dfe8e2; --coat:#dfe8e2; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0e1412; --panel:#17201c; --ink:#e4ebe7; --muted:#93a39b; --line:#2b3732;
+  --accent:#8aa0ff; --accent-ink:#0e1412;
+  --g-hazard:#ff7a5c; --g-safe:#4fcf8d; --g-action:#8aa0ff; --g-info:#b893ff; --g-nope:#f0b64a; --g-rat:#b5ab9c;
+  --back-a:#22302a; --back-b:#2b3c34; --back-ink:#dfe8e2; --coat:#dfe8e2; color-scheme:dark }
+
+html,body{min-height:100%}
+body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:16px 40px}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{max-width:1000px;margin:0 auto;display:grid;gap:16px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
+.brand{display:flex;gap:12px;align-items:center}
+.mark{width:46px;height:46px;border:2px solid var(--ink);border-radius:6px;display:grid;place-items:center;position:relative;font-family:var(--f-display);font-weight:800;font-size:22px}
+.mark::before{content:"3";position:absolute;top:2px;left:4px;font:600 9px var(--f-mono)}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(22px,4vw,30px);line-height:1;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.brand p{margin:3px 0 0;color:var(--muted);font-size:12px;font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.08em}
+.ctrls{display:flex;gap:8px;align-items:center}
+.ctrls label{font-size:13px;color:var(--muted)}
+select{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 8px}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:8px 14px;font-weight:600;cursor:pointer}
+.btn:hover:not(:disabled){border-color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* rivals */
+.rivals{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.station{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:8px;transition:border-color .2s, box-shadow .2s}
+.station.turn{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.station.out{opacity:.55}
+.station .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.station .nm{font-weight:600}
+.state{font:600 11px var(--f-mono);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.station.turn .state{color:var(--accent)}
+.station.out .state{color:var(--g-hazard)}
+.minis{display:flex;min-height:22px}
+.mini{width:15px;height:22px;border-radius:3px;background:repeating-linear-gradient(-45deg,var(--back-a) 0 3px,var(--back-b) 3px 6px);border:1px solid var(--panel);margin-right:-5px}
+.count{font:600 12px var(--f-mono);color:var(--muted);margin-left:12px;align-self:center;font-variant-numeric:tabular-nums}
+
+/* table */
+.table{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:12px}
+@media (max-width:720px){.table{grid-template-columns:minmax(0,1fr)}}
+.bench{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;display:grid;gap:14px;align-content:start}
+.piles{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.pile{display:grid;gap:6px;justify-items:start}
+.pile .lbl{font:600 11px var(--f-mono);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.deck{width:106px;height:150px;border-radius:10px;border:none;padding:0;cursor:pointer;position:relative;
+  background:repeating-linear-gradient(-45deg,var(--back-a) 0 8px,var(--back-b) 8px 16px);color:var(--back-ink);
+  box-shadow:3px 3px 0 var(--line),6px 6px 0 color-mix(in srgb,var(--line) 60%,transparent);display:grid;place-items:center;transition:transform .15s}
+.deck:not(:disabled):hover{transform:translate(-2px,-2px)}
+.deck:disabled{cursor:default}
+.deck .tag{background:var(--back-a);border:1px solid var(--back-ink);border-radius:4px;padding:4px 7px;font:600 11px var(--f-mono);text-align:center;line-height:1.3}
+.deck .tag b{display:block;font-size:20px;font-family:var(--f-display);font-variant-numeric:tabular-nums}
+.deck.ready{outline:2px solid var(--accent);outline-offset:4px}
+.empty-slot{width:106px;height:150px;border:1.5px dashed var(--line);border-radius:10px;display:grid;place-items:center;color:var(--muted);font-size:12px}
+.status{font-family:var(--f-display);font-weight:600;font-size:19px;line-height:1.2;text-wrap:balance}
+.meter{display:grid;gap:6px}
+.meter .bar{height:8px;border-radius:4px;background:color-mix(in srgb,var(--g-hazard) 14%,var(--panel));border:1px solid var(--line);overflow:hidden}
+.meter .fill{height:100%;background:var(--g-hazard);transition:width .4s}
+.meter .txt{display:flex;justify-content:space-between;font:500 12px var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums;gap:8px;flex-wrap:wrap}
+
+.notebook{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;display:grid;grid-template-rows:auto 1fr;min-height:0;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px);background-size:100% 26px;background-position:0 46px}
+.notebook h2,.mehead h2{margin:0;font:600 12px var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.log{list-style:none;margin:8px 0 0;padding:0;max-height:250px;overflow-y:auto;display:grid;gap:0;align-content:start}
+.log li{display:grid;grid-template-columns:38px minmax(0,1fr);gap:6px;font-size:13.5px;line-height:26px;min-height:26px}
+.log li .t{font:500 11px/26px var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.log li.hazard{color:var(--g-hazard);font-weight:600}
+.log li.muted{color:var(--muted)}
+.chip{font:600 12px var(--f-mono);padding:1px 5px;border-radius:4px;color:var(--g);background:color-mix(in srgb,var(--g) 13%,transparent);white-space:nowrap;line-height:1.6}
+
+/* hand */
+.me{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;display:grid;gap:12px;min-width:0}
+.me.turn{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.mehead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.turninfo{font:600 12px var(--f-mono);color:var(--accent);text-transform:uppercase;letter-spacing:.06em}
+.spec{min-height:44px;font-size:14px;color:var(--muted);max-width:68ch}
+.spec b{color:var(--ink)}
+.spec .warn{color:var(--g-hazard)}
+.hand{display:flex;gap:8px;overflow-x:auto;padding:14px 4px 8px;margin:0 -4px;scroll-snap-type:x proximity}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* card */
+.card{--g:var(--g-rat);flex:0 0 auto;width:106px;height:150px;border-radius:10px;padding:7px 8px 8px;text-align:left;cursor:pointer;
+  border:1.5px solid color-mix(in srgb,var(--g) 50%,var(--line));
+  background:linear-gradient(170deg,color-mix(in srgb,var(--g) 15%,var(--panel)),var(--panel) 75%);
+  display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:2px;scroll-snap-align:start;transition:transform .15s, box-shadow .15s;position:relative;color:var(--ink)}
+.card .tp{display:flex;justify-content:space-between;align-items:baseline;font:600 10px var(--f-mono);color:var(--muted);letter-spacing:.03em}
+.card .tp .sy{font-family:var(--f-display);font-weight:800;font-size:17px;line-height:1;color:var(--g);letter-spacing:-.01em}
+.card .art{width:100%;height:100%;min-height:0;color:var(--g);fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.card .art .f{fill:color-mix(in srgb,var(--g) 16%,var(--panel))}
+.card .art .l{fill:currentColor;fill-opacity:.38;stroke:none}
+.card .art .dot{fill:currentColor;stroke:none}
+.card .art .k-red{fill:var(--g-hazard);stroke:none}
+.card .art .k-coat{fill:var(--coat)}
+.card .art .k-pen{stroke:var(--g-action)}
+.card .art .k-safe{fill:var(--g-safe);stroke:none}
+.card .art .k-act{stroke:var(--g-action)}
+.card .art .k-actf{fill:var(--g-action);fill-opacity:.55;stroke:var(--g-action)}
+.card .art .k-shine{stroke:var(--coat);stroke-width:2.6}
+.card .art .k-nopef{fill:var(--g-nope);stroke:var(--g-nope);stroke-width:1.2}
+.card .bt{display:grid;gap:1px}
+.card .gl{font:600 9px var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--g)}
+.card .cn{font-size:11.5px;line-height:1.15;font-weight:600}
+.card:hover{transform:translateY(-3px)}
+.card.sel{transform:translateY(-12px);box-shadow:0 0 0 2px var(--accent),0 8px 16px color-mix(in srgb,var(--ink) 18%,transparent)}
+.card.fresh{animation:fresh .6s ease}
+@keyframes fresh{from{transform:translateY(-30px);opacity:0}to{transform:none;opacity:1}}
+.card.static{cursor:default}
+.card.static:hover{transform:none}
+.g-hazard{--g:var(--g-hazard)} .g-safe{--g:var(--g-safe)} .g-action{--g:var(--g-action)} .g-info{--g:var(--g-info)} .g-nope{--g:var(--g-nope)} .g-rat{--g:var(--g-rat)}
+
+/* rules */
+details.rules{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+details.rules summary{cursor:pointer;font-weight:600}
+.rules-body{display:grid;gap:14px;margin-top:12px}
+.rules-body ol{margin:0;padding-left:20px;display:grid;gap:4px;max-width:68ch}
+.ref{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.ref .item{display:grid;grid-template-columns:106px minmax(0,1fr);gap:10px;align-items:center}
+.ref .item p{margin:0;font-size:13.5px}
+.rats{grid-column:1/-1;display:grid;gap:8px}
+.rats p{margin:0;font-size:13.5px;max-width:68ch}
+.ratrow{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.ref .qty{display:block;font:600 11px var(--f-mono);color:var(--muted);margin-bottom:2px}
+.ref .item .qty{font:600 11px var(--f-mono);color:var(--muted);display:block;margin-bottom:2px}
+
+/* modal */
+.overlay{position:fixed;inset:0;background:color-mix(in srgb,var(--back-a) 55%,transparent);display:grid;place-items:center;z-index:20;
+  padding:max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;width:min(520px,100%);display:grid;gap:12px;max-height:100%;overflow:auto;position:relative}
+.sheet .kick{font:600 11px var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.sheet h3{margin:0;font-family:var(--f-display);font-weight:800;font-size:24px;line-height:1.1;text-wrap:balance}
+.sheet.hazard h3{color:var(--g-hazard)}
+.sheet p{margin:0}
+.sheet .cards{display:flex;gap:8px;overflow-x:auto;padding:8px 2px}
+.sheet .cards figure{margin:0;display:grid;gap:4px;justify-items:center}
+.sheet .cards figcaption{font:600 11px var(--f-mono);color:var(--muted)}
+.sheet .btns{display:flex;gap:8px;flex-wrap:wrap}
+.timer{height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.timer i{display:block;height:100%;background:var(--g-nope);width:100%}
+
+/* explosion */
+.boom{position:fixed;inset:0;pointer-events:none;z-index:30;background:radial-gradient(circle at 50% 55%,var(--g-hazard),transparent 60%);animation:boom .9s ease-out forwards}
+@keyframes boom{0%{opacity:0;transform:scale(.3)}25%{opacity:.85}100%{opacity:0;transform:scale(1.8)}}
+.shake{animation:shake .45s}
+@keyframes shake{20%{transform:translate(-6px,2px)}40%{transform:translate(5px,-3px)}60%{transform:translate(-4px,1px)}80%{transform:translate(3px,0)}}
+@media (prefers-reduced-motion: reduce){
+  .card,.deck,.meter .fill{transition:none}
+  .card.fresh,.shake{animation:none}
+  .boom{animation:flash .5s forwards}
+  @keyframes flash{0%{opacity:.6}100%{opacity:0}}
+}
+</style>
+
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">Li</div>
+      <div><h1>Laboratório Instável</h1><p>Protótipo · regras base</p></div>
+    </div>
+    <div class="ctrls">
+      <label for="nb">Rivais</label>
+      <select id="nb"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select>
+      <button class="btn" id="newgame">Novo jogo</button>
+    </div>
+  </header>
+
+  <section class="rivals" id="rivals" aria-label="Rivais"></section>
+
+  <section class="table">
+    <div class="bench">
+      <div class="status" id="status" aria-live="polite"></div>
+      <div class="piles">
+        <div class="pile"><span class="lbl">Baralho</span><button class="deck" id="deck" aria-label="Tirar carta do baralho"></button></div>
+        <div class="pile"><span class="lbl">Descarte</span><div id="discard"></div></div>
+      </div>
+      <div class="meter">
+        <div class="bar"><div class="fill" id="riskfill"></div></div>
+        <div class="txt" id="risktxt"></div>
+      </div>
+    </div>
+    <div class="notebook">
+      <h2>Caderno de laboratório</h2>
+      <ol class="log" id="log"></ol>
+    </div>
+  </section>
+
+  <section class="me" id="me">
+    <div class="mehead"><h2>A tua mão</h2><span class="turninfo" id="turninfo"></span></div>
+    <div class="spec" id="spec"></div>
+    <div class="hand" id="hand"></div>
+    <div class="actions">
+      <button class="btn primary" id="play" disabled>Jogar seleção</button>
+      <button class="btn" id="draw" disabled>Tirar carta e terminar</button>
+    </div>
+  </section>
+
+  <details class="rules">
+    <summary>Regras e cartas</summary>
+    <div class="rules-body">
+      <ol>
+        <li>Cada cientista começa com 1 Neutralizador e 7 cartas. No baralho ficam escondidas tantas Poções Instáveis quantos rivais houver.</li>
+        <li>No teu turno, joga as cartas de ação que quiseres. Depois tira uma carta do baralho, e o turno acaba.</li>
+        <li>Se tirares uma Poção Instável, usa um Neutralizador e escolhe onde a esconder no baralho. Sem Neutralizador, explodes.</li>
+        <li>O Protocolo Negado anula a ação de outro jogador. O jogo pergunta-te quando o podes usar.</li>
+        <li>Ganha o último cientista inteiro.</li>
+      </ol>
+      <div class="ref" id="ref"></div>
+    </div>
+  </details>
+</div>
+
+<div class="overlay" id="modal" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="mtitle"></div></div>
+
+<script>
+const RAT='Sozinha não faz nada. Joga 2 cobaias iguais para roubar uma carta ao acaso a outro jogador.';
+const DEF={
+  bomb:   {sym:'Pi',n:94,name:'Poção Instável',g:'hazard',gl:'Perigo',d:'Se a tirares sem Neutralizador, explodes e sais do jogo.'},
+  defuse: {sym:'Nz',n:7, name:'Neutralizador',g:'safe',gl:'Defesa',d:'Usa-se sozinho quando tiras uma Poção Instável. Depois escondes a poção no baralho.'},
+  skip:   {sym:'Fc',n:21,name:'Fuga pela Conduta',g:'action',gl:'Ação',d:'Termina um turno sem tirares carta.'},
+  attack: {sym:'Ed',n:33,name:'Experiência Dupla',g:'action',gl:'Ação',d:'Termina o teu turno sem tirares carta. O jogador seguinte joga 2 turnos.'},
+  favor:  {sym:'Am',n:45,name:'Pedir Amostra',g:'action',gl:'Ação',d:'Escolhe um jogador. Ele dá-te uma carta à escolha dele.'},
+  future: {sym:'Mc',n:52,name:'Microscópio',g:'info',gl:'Análise',d:'Vês as 3 cartas do topo do baralho, sem as mudar de sítio.'},
+  shuffle:{sym:'Ct',n:60,name:'Centrifugadora',g:'info',gl:'Análise',d:'Baralha o baralho todo.'},
+  nope:   {sym:'Pn',n:13,name:'Protocolo Negado',g:'nope',gl:'Reação',d:'Anula a ação de outro jogador. Usa-se fora do teu turno, quando o jogo perguntar.'},
+  ratA:{sym:'Ra',n:71,name:'Rato Albino',g:'rat',gl:'Cobaia',d:RAT},
+  ratB:{sym:'Rb',n:72,name:'Rato de Bata',g:'rat',gl:'Cobaia',d:RAT},
+  ratM:{sym:'Rm',n:73,name:'Rato Mutante',g:'rat',gl:'Cobaia',d:RAT},
+  ratT:{sym:'Rt',n:74,name:'Rato Turbo',g:'rat',gl:'Cobaia',d:RAT},
+  ratC:{sym:'Rc',n:75,name:'Rato Careca',g:'rat',gl:'Cobaia',d:RAT},
+};
+const COUNTS={skip:4,attack:4,favor:4,future:5,shuffle:4,nope:5,ratA:4,ratB:4,ratM:4,ratT:4,ratC:4};
+const ORDER=['defuse','nope','attack','skip','future','shuffle','favor','ratA','ratB','ratM','ratT','ratC','bomb'];
+const ACTIONS=['skip','attack','future','shuffle','favor'];
+const BOTS=['Prof. Bigodes','Dra. Pipeta','Rato Kiko'];
+const isRat=t=>DEF[t].g==='rat';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const rnd=n=>Math.floor(Math.random()*n);
+const shuffleArr=a=>{for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- ilustrações (viewBox 80×60, traço na cor do grupo) ---------- */
+function rat(extra='',eye='<circle class="dot" cx="58" cy="37" r="1.9"/>'){
+  return `<path d="M15 45 C5 46 3 36 9 31 C12 29 14 31 12 33"/>
+  <path class="f" d="M14 44 C14 32 26 27 38 28 C46 28 52 30 57 33 C63 36 68 39 70 42 C66 46 58 48 50 48 L22 49 C17 49 14 47 14 44 Z"/>
+  <circle class="f" cx="51" cy="28" r="6"/><circle class="l" cx="51" cy="28" r="2.6"/>
+  <circle class="dot" cx="70" cy="42" r="1.7"/>
+  <path d="M24 49 v4 M42 48 v5 M64 43 l8 -2 M64 44 l8 2"/>
+  ${eye}${extra}`;
+}
+const ART={
+  bomb:`<path class="f" d="M35 13 V28 A16 16 0 1 0 45 28 V13"/>
+    <path class="l" d="M25 46 A15.5 15.5 0 0 0 55 46 Z"/>
+    <path d="M32 13 H48"/><path d="M30 37 l5 3 -3 4 5 4"/><path d="M50 36 l-3 3 4 3"/>
+    <circle cx="44" cy="7" r="2.4"/><circle cx="36" cy="4" r="1.6"/><circle cx="50" cy="2.5" r="1.3"/>
+    <path d="M14 22 l4 3 M66 22 l-4 3 M12 34 h5 M68 34 h-5"/>`,
+  defuse:`<g transform="rotate(-28 40 32)">
+    <rect class="f" x="20" y="25" width="34" height="14" rx="2"/>
+    <rect class="l" x="20" y="27" width="20" height="10"/>
+    <path d="M26 25 v4 M32 25 v4 M38 25 v4 M44 25 v4"/>
+    <path d="M54 32 H66 M66 23 V41"/><path d="M20 32 H8"/><path d="M17 28 V36"/></g>
+    <path d="M62 50 v8 M58 54 h8"/><path d="M14 8 v6 M11 11 h6"/>`,
+  skip:`<rect class="f" x="12" y="10" width="56" height="40" rx="3"/>
+    <path d="M19 19 H61 M19 26 H61 M19 33 H61 M19 40 H61"/>
+    <circle class="dot" cx="16" cy="14" r="1.3"/><circle class="dot" cx="64" cy="14" r="1.3"/><circle class="dot" cx="16" cy="46" r="1.3"/><circle class="dot" cx="64" cy="46" r="1.3"/>
+    <path d="M52 40 C56 46 66 48 70 54 C72 57 69 59 67 57"/>`,
+  attack:`<path class="f" d="M18 10 V44 A6 6 0 0 0 30 44 V10"/><path class="l" d="M18 28 V44 A6 6 0 0 0 30 44 V28 Z"/>
+    <path class="f" d="M50 10 V44 A6 6 0 0 0 62 44 V10"/><path class="l" d="M50 22 V44 A6 6 0 0 0 62 44 V22 Z"/>
+    <path d="M15 10 H33 M47 10 H65"/>
+    <path d="M42 16 l-5 10 h7 l-5 11"/>
+    <circle cx="24" cy="22" r="1.4"/><circle cx="56" cy="16" r="1.4"/>`,
+  favor:`<ellipse class="f" cx="40" cy="40" rx="27" ry="12"/><ellipse cx="40" cy="38" rx="22" ry="8.5"/>
+    <circle class="l" cx="32" cy="37" r="3"/><circle class="l" cx="44" cy="40" r="2.2"/><circle class="l" cx="49" cy="35" r="1.6"/><circle class="l" cx="37" cy="42" r="1.4"/>
+    <path d="M60 18 C52 8 30 8 22 18"/><path d="M22 18 l1 -6 M22 18 l6 -1"/>`,
+  future:`<rect class="f" x="18" y="49" width="44" height="6" rx="2"/>
+    <path d="M52 49 V40 C52 30 48 24 41 21"/>
+    <rect class="f" x="28" y="5" width="9" height="26" rx="2" transform="rotate(-28 32 18)"/>
+    <path d="M38 31 l2 5"/><path d="M24 39 H50"/><circle class="f" cx="52" cy="33" r="3.5"/>
+    <circle class="l" cx="36" cy="39" r="2"/>`,
+  shuffle:`<circle class="f" cx="40" cy="31" r="20"/><circle class="dot" cx="40" cy="31" r="3.2"/>
+    <g><rect class="l" x="37" y="14" width="6" height="11" rx="3"/><rect class="l" x="37" y="37" width="6" height="11" rx="3"/>
+    <rect class="l" x="23" y="28" width="11" height="6" rx="3"/><rect class="l" x="46" y="28" width="11" height="6" rx="3"/></g>
+    <path d="M14 18 A30 30 0 0 1 30 5"/><path d="M66 44 A30 30 0 0 1 50 57"/>
+    <path d="M30 5 l-6 0 M30 5 l-3 5"/><path d="M50 57 l6 0 M50 57 l3 -5"/>`,
+  nope:`<rect class="f" x="16" y="9" width="34" height="46" rx="3"/><rect class="f" x="26" y="5" width="14" height="7" rx="2"/>
+    <path d="M22 20 H44 M22 27 H40 M22 34 H42"/>
+    <circle cx="52" cy="40" r="14" stroke-width="3"/><path d="M42 50 L62 30" stroke-width="3"/>`,
+  ratA: rat(`<circle class="k-red" cx="51" cy="28" r="2.6"/><circle class="k-red" cx="70" cy="42" r="2"/>`,
+    `<circle class="k-red" cx="58" cy="37" r="2.6"/>`),
+  ratB: rat(`<path class="k-coat" d="M30 29 C40 27.5 47 30 51 34 L45 48.5 L27 49 Z"/><path d="M39 29.5 L36 41 M45 31.5 L40 41"/><rect class="k-coat" x="29" y="39" width="6" height="5" rx="1"/><path class="k-pen" d="M31 35 V40"/>`,
+    `<circle class="k-coat" cx="58" cy="36.5" r="3.8"/><circle class="dot" cx="58" cy="36.5" r="1.5"/><path d="M54.2 35.5 L50 33.5"/>`),
+  ratM: rat(`<circle class="k-safe" cx="25" cy="38" r="3.2"/><circle class="k-safe" cx="36" cy="43" r="2.2"/><circle class="k-safe" cx="31" cy="32" r="1.7"/><circle class="k-safe" cx="42" cy="35" r="1.4"/>
+    <path d="M58 31 C59 24 62 20 65 17"/><circle class="k-safe" cx="65.5" cy="16" r="2.8"/>`,
+    `<circle class="dot" cx="57" cy="37" r="1.9"/><circle class="k-safe" cx="62.5" cy="39.5" r="1.8"/>`),
+  ratT: rat(`<path class="k-act" d="M1 28 H10 M3 38 H9 M0 47 H8"/><path class="k-actf" d="M46 31 L61 33 L61 38.5 L46 36 Z"/>`,
+    `<circle class="k-coat" cx="58" cy="36" r="3"/><circle class="dot" cx="58" cy="36" r="1.2"/>`),
+  ratC: rat(`<path d="M42 30 q3 -3.5 7 -1.5"/><path class="k-shine" d="M53 31.5 q2 -2.5 5 -0.5"/><path class="k-nopef" d="M46 47 l-4 -3 v6 Z M46 47 l4 -3 v6 Z"/>`,
+    `<path d="M55.5 37 h4.5"/>`),
+};
+
+function cardHTML(c){
+  const d=DEF[c.t];
+  return `<span class="tp"><span>${d.n}</span><span class="sy">${d.sym}</span></span>
+    <svg class="art" viewBox="${isRat(c.t)?'1 15 73 41':'0 0 80 60'}" aria-hidden="true">${ART[c.t]}</svg>
+    <span class="bt"><span class="gl">${d.gl}</span><span class="cn">${d.name}</span></span>`;
+}
+function cardEl(c,{tag='button',cls=''}={}){
+  const el=document.createElement(tag);
+  el.className=`card g-${DEF[c.t].g} ${cls}`;
+  if(tag==='button') el.type='button';
+  el.innerHTML=cardHTML(c);
+  el.setAttribute('aria-label',DEF[c.t].name);
+  return el;
+}
+const chip=t=>`<span class="chip g-${DEF[t].g}">${DEF[t].sym} · ${DEF[t].name}</span>`;
+
+/* ---------- modal ---------- */
+let modalResolve=null, modalTimer=null;
+function closeModal(v){
+  if(!modalResolve) return;
+  const r=modalResolve; modalResolve=null; clearTimeout(modalTimer);
+  $('modal').hidden=true; $('sheet').innerHTML=''; r(v);
+}
+function openModal({kicker='',title,body='',cards=null,pick=false,buttons=[],timeout=0,timeoutValue=null,tone=''}){
+  closeModal(null);
+  return new Promise(res=>{
+    modalResolve=res;
+    const s=$('sheet'); s.className='sheet '+tone; s.innerHTML='';
+    s.insertAdjacentHTML('beforeend',`${kicker?`<div class="kick">${kicker}</div>`:''}<h3 id="mtitle">${title}</h3>${body?`<p>${body}</p>`:''}`);
+    if(cards){
+      const row=document.createElement('div'); row.className='cards';
+      cards.forEach(({card,label,value})=>{
+        const f=document.createElement('figure');
+        const el=cardEl(card,{tag:pick?'button':'div',cls:pick?'':'static'});
+        if(pick) el.onclick=()=>closeModal(value);
+        f.append(el);
+        if(label) f.insertAdjacentHTML('beforeend',`<figcaption>${label}</figcaption>`);
+        row.append(f);
+      });
+      s.append(row);
+    }
+    if(timeout){
+      s.insertAdjacentHTML('beforeend','<div class="timer"><i></i></div>');
+      const bar=s.querySelector('.timer i');
+      bar.animate([{width:'100%'},{width:'0%'}],{duration:timeout,fill:'forwards'});
+      modalTimer=setTimeout(()=>closeModal(timeoutValue),timeout);
+    }
+    if(buttons.length){
+      const b=document.createElement('div'); b.className='btns';
+      buttons.forEach(({label,value,primary,disabled})=>{
+        const el=document.createElement('button'); el.type='button';
+        el.className='btn'+(primary?' primary':''); el.textContent=label; el.disabled=!!disabled;
+        el.onclick=()=>closeModal(value); b.append(el);
+      });
+      s.append(b);
+    }
+    $('modal').hidden=false;
+    (s.querySelector('.btn.primary')||s.querySelector('button'))?.focus();
+  });
+}
+
+/* ---------- game ---------- */
+const ABORT=Symbol('abort');
+let CUR=null;
+
+function createGame(nBots){
+  let nid=0; const mk=t=>({id:nid++,t});
+  const pool=[];
+  for(const t in COUNTS) for(let i=0;i<COUNTS[t];i++) pool.push(mk(t));
+  shuffleArr(pool);
+  const players=[{name:'Tu',human:true},...BOTS.slice(0,nBots).map(n=>({name:n,human:false}))]
+    .map(p=>({...p,hand:[],alive:true}));
+  for(const p of players){ p.hand.push(mk('defuse')); for(let i=0;i<7;i++) p.hand.push(pool.pop()); }
+  const extra=Math.min(2,6-players.length);
+  for(let i=0;i<extra;i++) pool.push(mk('defuse'));
+  for(let i=0;i<players.length-1;i++) pool.push(mk('bomb'));
+  shuffleArr(pool);
+
+  const S={players,deck:pool,discard:[],cur:0,turns:1,turnNo:1,sel:new Set(),log:[],over:false,know:{},fresh:null};
+  const api={S,waitHuman:null};
+  const chk=()=>{ if(CUR!==api) throw ABORT; };
+  const wait=async ms=>{ await sleep(ms); chk(); };
+  const ask=async o=>{ chk(); const v=await openModal(o); chk(); return v; };
+  const draw=()=>{ if(CUR===api) render(S,api); };
+  const log=(html,kind='')=>{ S.log.unshift({t:S.turnNo,html,kind}); if(S.log.length>80) S.log.pop(); draw(); };
+  const who=(i,obj)=>S.players[i].human?(obj?'ti':'Tu'):`<b>${esc(S.players[i].name)}</b>`;
+  const v=(i,tu,ele)=>S.players[i].human?tu:ele;
+  const aliveIdx=()=>S.players.map((p,i)=>p.alive?i:-1).filter(i=>i>=0);
+  const nextAlive=i=>{let j=i;do{j=(j+1)%S.players.length}while(!S.players[j].alive);return j};
+  const bombsLeft=()=>S.deck.filter(c=>c.t==='bomb').length;
+  const sortHand=p=>p.hand.sort((a,b)=>ORDER.indexOf(a.t)-ORDER.indexOf(b.t));
+
+  function startTurnOf(i,turns){ S.cur=i; S.turns=turns; S.turnNo++; S.sel.clear(); draw(); }
+  function endOneTurn(){ S.turns--; if(S.turns<=0) startTurnOf(nextAlive(S.cur),1); else draw(); }
+
+  /* bot memory of the top of the deck */
+  function knownTop(pi){
+    const k=S.know[pi]; if(!k) return [];
+    for(let i=0;i<k.length;i++) if(!S.deck[i]||S.deck[i].id!==k[i]){ delete S.know[pi]; return []; }
+    return k.map((_,i)=>S.deck[i]);
+  }
+  function shiftKnowledge(drawnId){
+    for(const k in S.know){ if(S.know[k][0]===drawnId) S.know[k].shift(); else delete S.know[k]; }
+  }
+
+  function transfer(from,to,card){
+    const f=S.players[from], t=S.players[to];
+    f.hand=f.hand.filter(c=>c.id!==card.id); t.hand.push(card); sortHand(t);
+    if(t.human) S.fresh=card.id;
+  }
+  function worstCard(pi){
+    const h=S.players[pi].hand;
+    const rank=t=>isRat(t)?0:({shuffle:1,future:2,favor:3,skip:4,attack:5,nope:6,defuse:9}[t]??1);
+    return [...h].sort((a,b)=>rank(a.t)-rank(b.t))[0];
+  }
+
+  /* Protocolo Negado chain */
+  function botWantsNope(qi,actor,target,cancelled,t){
+    if(cancelled) return qi===actor && Math.random()<0.5;
+    if(qi===actor) return false;
+    const hit = qi===target || (t==='attack' && nextAlive(actor)===qi);
+    return Math.random() < (hit?0.55:0.08);
+  }
+  async function nopeWindow(actor,t,target){
+    let cancelled=false, last=actor;
+    for(;;){
+      let responder=null;
+      const order=shuffleArr(aliveIdx().filter(i=>i!==last));
+      for(const qi of order){
+        const q=S.players[qi];
+        if(!q.hand.some(c=>c.t==='nope')) continue;
+        if(q.human){
+          const relevant = cancelled ? qi===actor : qi!==actor;
+          if(!relevant) continue;
+          const body = cancelled
+            ? `${who(last)} anulou a tua ação. Queres anular a anulação com outro Protocolo Negado?`
+            : `${who(actor)} jogou ${chip(t)}${target!=null?` contra ${who(target,true)}`:''}. Queres anulá-la?`;
+          const yes=await ask({kicker:'Reação',title:'Usar Protocolo Negado?',body,buttons:[{label:'Anular',value:true,primary:true},{label:'Deixar passar',value:false}],timeout:5000,timeoutValue:false});
+          if(yes){responder=qi;break;}
+        } else if(botWantsNope(qi,actor,target,cancelled,t)){ responder=qi; break; }
+      }
+      if(responder==null) break;
+      const q=S.players[responder]; const n=q.hand.find(c=>c.t==='nope');
+      q.hand=q.hand.filter(c=>c!==n); S.discard.push(n);
+      cancelled=!cancelled; last=responder;
+      log(`${who(responder)} ${v(responder,'jogaste','jogou')} ${chip('nope')}.`);
+      await wait(650);
+    }
+    return cancelled;
+  }
+
+  async function doPlay(pi,ids,target){
+    const p=S.players[pi];
+    const cards=ids.map(id=>p.hand.find(c=>c.id===id));
+    p.hand=p.hand.filter(c=>!ids.includes(c.id));
+    S.discard.push(...cards); S.sel.clear();
+    const t=cards[0].t, pair=cards.length===2;
+    log(`${who(pi)} ${v(pi,'jogaste','jogou')} ${chip(t)}${pair?' ×2':''}${target!=null?` contra ${who(target,true)}`:''}.`);
+    await wait(500);
+    if(await nopeWindow(pi,t,target)){ log('A ação ficou anulada.','muted'); return; }
+
+    if(pair || t==='favor'){
+      const tp=S.players[target];
+      if(!tp.hand.length){ log(`${who(target)} não ${v(target,'tens','tem')} cartas para dar.`,'muted'); return; }
+      let card;
+      if(pair){ card=tp.hand[rnd(tp.hand.length)]; }
+      else if(tp.human){
+        sortHand(tp);
+        const id=await ask({kicker:'Pedir Amostra',title:`${esc(p.name)} pede-te uma carta`,body:'Escolhe a carta que vais dar.',cards:tp.hand.map(c=>({card:c,value:c.id})),pick:true});
+        card=tp.hand.find(c=>c.id===id)||worstCard(target);
+      } else card=worstCard(target);
+      transfer(target,pi,card);
+      if(p.human) log(`Recebeste ${chip(card.t)} de ${who(target)}.`);
+      else if(tp.human) log(`Deste ${chip(card.t)} a ${who(pi)}.`);
+      else log(`${who(target)} deu uma carta a ${who(pi)}.`);
+      return;
+    }
+    switch(t){
+      case 'skip': log(`${who(pi)} ${v(pi,'escapaste','escapou')} pela conduta.`,'muted'); endOneTurn(); break;
+      case 'attack': { const nx=nextAlive(pi); log(`${who(nx)} ${v(nx,'jogas','joga')} 2 turnos seguidos.`,'muted'); startTurnOf(nx,2); break; }
+      case 'shuffle': shuffleArr(S.deck); S.know={}; log('O baralho foi centrifugado.','muted'); break;
+      case 'future': {
+        const top=S.deck.slice(0,3);
+        if(p.human){
+          await ask({kicker:'Microscópio',title:'Topo do baralho',body:'A primeira é a próxima a sair.',cards:top.map((c,i)=>({card:c,label:i===0?'1.ª · topo':`${i+1}.ª`})),buttons:[{label:'Fechar',value:true,primary:true}]});
+        } else { S.know[pi]=top.map(c=>c.id); log(`${who(pi)} espreitou o topo do baralho.`,'muted'); }
+        break;
+      }
+    }
+  }
+
+  function boom(){
+    if(CUR!==api) return;
+    const b=document.createElement('div'); b.className='boom'; document.body.append(b);
+    setTimeout(()=>b.remove(),1000);
+    const app=$('app'); app.classList.remove('shake'); void app.offsetWidth; app.classList.add('shake');
+  }
+
+  async function doDraw(pi){
+    const p=S.players[pi];
+    const c=S.deck.shift(); shiftKnowledge(c.id);
+    if(c.t!=='bomb'){
+      p.hand.push(c); sortHand(p);
+      if(p.human){ S.fresh=c.id; log(`Tiraste ${chip(c.t)}.`); } else log(`${who(pi)} tirou uma carta.`,'muted');
+      await wait(350); endOneTurn(); return;
+    }
+    log(`${who(pi)} ${v(pi,'tiraste','tirou')} uma ${chip('bomb')}!`,'hazard');
+    draw(); await wait(700);
+    const d=p.hand.find(x=>x.t==='defuse');
+    if(d){
+      p.hand=p.hand.filter(x=>x!==d); S.discard.push(d);
+      log(`${who(pi)} ${v(pi,'usaste','usou')} ${chip('defuse')}.`);
+      let pos; const n=S.deck.length;
+      if(p.human){
+        const choice=await ask({kicker:'Neutralizada',title:'Onde escondes a poção?',body:`O baralho tem ${n} cartas. A posição 1 é a próxima a sair.`,tone:'',
+          buttons:[{label:'No topo',value:0,primary:true},{label:'2.ª posição',value:1,disabled:n<1},{label:'3.ª posição',value:2,disabled:n<2},{label:'No meio',value:'mid'},{label:'No fundo',value:'bottom'},{label:'Ao acaso',value:'rand'}]});
+        pos = choice==='mid'?Math.floor(n/2) : choice==='bottom'?n : choice==='rand'||choice==null?rnd(n+1) : Math.min(choice,n);
+      } else {
+        pos = Math.random()<0.35 ? 0 : rnd(n+1);
+      }
+      S.deck.splice(pos,0,c); S.know={};
+      if(!p.human && pos<3) S.know[pi]=S.deck.slice(0,pos+1).map(x=>x.id);
+      log(`${who(pi)} ${v(pi,'escondeste','escondeu')} a poção de volta no baralho.`,'muted');
+      await wait(400); endOneTurn(); return;
+    }
+    p.alive=false; S.discard.push(c,...p.hand); p.hand=[];
+    boom();
+    log(`${who(pi)} ${v(pi,'explodiste','explodiu')}.`,'hazard');
+    await wait(1000);
+    const al=aliveIdx();
+    if(p.human || al.length===1){
+      S.over=true; draw();
+      const won=!p.human;
+      const res=await ask({kicker:'Fim da experiência',title:won?'Ganhaste!':'Explodiste',tone:won?'':'hazard',
+        body:won?'És o último cientista inteiro no laboratório.':`Ficaram ${al.length} ${al.length===1?'rival':'rivais'} de pé. Melhor sorte na próxima.`,
+        buttons:[{label:'Jogar outra vez',value:'again',primary:true},{label:'Ver a mesa',value:'stay'}]});
+      if(res==='again') newGame();
+      return;
+    }
+    startTurnOf(nextAlive(pi),1);
+  }
+
+  function botChoose(pi){
+    const h=S.players[pi].hand, of=t=>h.filter(c=>c.t===t);
+    const one=t=>({type:'play',ids:[of(t)[0].id]});
+    const kn=knownTop(pi);
+    const risk=bombsLeft()/S.deck.length, hasDef=of('defuse').length>0;
+    if(kn[0]?.t==='bomb'){ for(const t of ['attack','skip','shuffle']) if(of(t).length) return one(t); }
+    const opps=aliveIdx().filter(i=>i!==pi&&S.players[i].hand.length>0).sort((a,b)=>S.players[b].hand.length-S.players[a].hand.length);
+    const tgt=opps[0];
+    const ratT=['ratA','ratB','ratM','ratT','ratC'].find(t=>of(t).length>=2);
+    if(tgt!=null && ratT && Math.random()<0.5) return {type:'play',ids:of(ratT).slice(0,2).map(c=>c.id),target:tgt};
+    if(tgt!=null && of('favor').length && Math.random()<0.3) return {...one('favor'),target:tgt};
+    if(kn.length) return {type:'draw'};
+    if(of('future').length && risk>0.1 && Math.random()<0.6) return one('future');
+    if(!hasDef && risk>0.18){ for(const t of ['attack','skip']) if(of(t).length && Math.random()<0.75) return one(t); }
+    if(hasDef && risk>0.4 && of('attack').length) return one('attack');
+    return {type:'draw'};
+  }
+
+  api.start=async()=>{
+    try{
+      log('A experiência começou. Boa sorte.','muted');
+      while(!S.over){
+        const pi=S.cur, p=S.players[pi];
+        let act;
+        if(p.human){ act=await new Promise(r=>{api.waitHuman=r; draw();}); api.waitHuman=null; chk(); }
+        else { await wait(900); act=botChoose(pi); }
+        if(act.type==='draw') await doDraw(pi); else await doPlay(pi,act.ids,act.target);
+      }
+    }catch(e){ if(e!==ABORT) console.error(e); }
+  };
+  api.selInfo=()=>{
+    const me=S.players[0];
+    const cards=[...S.sel].map(id=>me.hand.find(c=>c.id===id)).filter(Boolean);
+    if(!cards.length) return {ok:false,cards};
+    if(cards.length===1){
+      const t=cards[0].t;
+      if(ACTIONS.includes(t)) return {ok:true,cards,needsTarget:t==='favor'};
+      if(isRat(t)) return {ok:false,cards,msg:'Escolhe outra cobaia igual para formar um par.'};
+      if(t==='nope') return {ok:false,cards,msg:'Esta carta usa-se como reação. O jogo pergunta-te quando a podes jogar.'};
+      return {ok:false,cards,msg:'Usa-se sozinha quando tiras uma Poção Instável.'};
+    }
+    if(cards.length===2 && cards[0].t===cards[1].t && isRat(cards[0].t)) return {ok:true,cards,needsTarget:true};
+    return {ok:false,cards,msg:'Só podes jogar uma carta de ação, ou duas cobaias iguais.'};
+  };
+  api.targets=()=>aliveIdx().filter(i=>i!==0);
+  return api;
+}
+
+/* ---------- render ---------- */
+function render(S,api){
+  const me=S.players[0], myTurn=!!api.waitHuman;
+  // rivals
+  $('rivals').innerHTML=S.players.slice(1).map((p,k)=>{
+    const i=k+1, turn=S.cur===i&&p.alive&&!S.over;
+    const state=!p.alive?'Explodiu':turn?(S.turns>1?`A jogar · ${S.turns} turnos`:'A jogar'):'À espera';
+    const minis=Array.from({length:Math.min(p.hand.length,12)},()=>'<span class="mini"></span>').join('');
+    return `<div class="station ${turn?'turn':''} ${p.alive?'':'out'}"><div class="row"><span class="nm">${esc(p.name)}</span><span class="state">${state}</span></div>
+      <div class="minis">${minis}<span class="count">${p.hand.length} ${p.hand.length===1?'carta':'cartas'}</span></div></div>`;
+  }).join('');
+  // status
+  const curP=S.players[S.cur];
+  $('status').textContent = S.over ? 'Experiência terminada.' :
+    S.cur===0 ? (S.turns>1?`É a tua vez. Tens ${S.turns} turnos para jogar.`:'É a tua vez. Joga cartas ou tira uma do baralho.') :
+    `${curP.name} está a jogar…`;
+  // deck
+  const deck=$('deck');
+  deck.innerHTML=`<span class="tag"><b>${S.deck.length}</b>amostras</span>`;
+  deck.disabled=!myTurn; deck.classList.toggle('ready',myTurn);
+  // discard
+  const top=S.discard[S.discard.length-1];
+  $('discard').replaceChildren(top?cardEl(top,{tag:'div',cls:'static'}):Object.assign(document.createElement('div'),{className:'empty-slot',textContent:'Vazio'}));
+  // risk
+  const b=S.deck.filter(c=>c.t==='bomb').length, pct=S.deck.length?Math.round(b/S.deck.length*100):0;
+  $('riskfill').style.width=Math.min(100,pct*2)+'%';
+  $('risktxt').innerHTML=`<span>${b} ${b===1?'poção instável':'poções instáveis'} no baralho</span><span>Risco na próxima carta: ${pct}%</span>`;
+  // log
+  $('log').innerHTML=S.log.map(e=>`<li class="${e.kind}"><span class="t">T${String(e.t).padStart(2,'0')}</span><span>${e.html}</span></li>`).join('');
+  // me
+  $('me').classList.toggle('turn',myTurn);
+  const defs=me.hand.filter(c=>c.t==='defuse').length;
+  $('turninfo').textContent = !me.alive?'Fora de jogo': myTurn?(S.turns>1?`Tua vez · ${S.turns} turnos`:'Tua vez'):`${me.hand.length} cartas · ${defs} ${defs===1?'neutralizador':'neutralizadores'}`;
+  const hand=$('hand'); hand.innerHTML='';
+  for(const c of me.hand){
+    const el=cardEl(c,{cls:(S.sel.has(c.id)?'sel ':'')+(S.fresh===c.id?'fresh':'')});
+    el.setAttribute('aria-pressed',S.sel.has(c.id));
+    el.onclick=()=>toggleSel(c);
+    hand.append(el);
+  }
+  if(S.fresh!=null){ const f=hand.querySelector('.fresh'); f?.scrollIntoView({block:'nearest',inline:'nearest'}); S.fresh=null; }
+  if(!me.hand.length) hand.innerHTML='<div class="empty-slot" style="width:auto;padding:0 16px">Sem cartas</div>';
+  // spec + buttons
+  const info=api.selInfo();
+  const last=info.cards[info.cards.length-1];
+  $('spec').innerHTML = last
+    ? `<b>${DEF[last.t].name}</b> · ${DEF[last.t].d}${info.msg?`<br><span class="warn">${info.msg}</span>`:''}`
+    : (myTurn?'Toca numa carta para a ver e selecionar. Quando acabares, tira uma carta do baralho para terminar o turno.':'Toca numa carta para ler o que faz.');
+  $('play').disabled=!(myTurn&&info.ok);
+  $('draw').disabled=!myTurn;
+}
+
+function toggleSel(c){
+  const S=CUR.S, me=S.players[0];
+  if(S.sel.has(c.id)) S.sel.delete(c.id);
+  else{
+    const cur=[...S.sel].map(id=>me.hand.find(x=>x.id===id)).filter(Boolean);
+    if(cur.length===1 && isRat(c.t) && cur[0].t===c.t) S.sel.add(c.id);
+    else { S.sel.clear(); S.sel.add(c.id); }
+  }
+  render(S,CUR);
+}
+
+$('play').onclick=async()=>{
+  const api=CUR; if(!api.waitHuman) return;
+  const info=api.selInfo(); if(!info.ok) return;
+  let target;
+  if(info.needsTarget){
+    const S=api.S;
+    const opts=api.targets().map(i=>({label:`${S.players[i].name} · ${S.players[i].hand.length}`,value:i,disabled:!S.players[i].hand.length}));
+    target=await openModal({kicker:info.cards.length===2?'Par de cobaias':'Pedir Amostra',title:'Contra quem?',
+      body:info.cards.length===2?'Roubas uma carta ao acaso.':'O jogador escolhe a carta que te dá.',
+      buttons:[...opts,{label:'Cancelar',value:null}]});
+    if(target==null||CUR!==api||!api.waitHuman) return;
+  }
+  api.waitHuman({type:'play',ids:info.cards.map(c=>c.id),target});
+};
+const humanDraw=()=>{ if(CUR?.waitHuman && !modalResolve) CUR.waitHuman({type:'draw'}); };
+$('draw').onclick=humanDraw; $('deck').onclick=humanDraw;
+
+function newGame(){
+  const old=CUR;
+  CUR=createGame(+$('nb').value);
+  closeModal(null);
+  if(old?.waitHuman) old.waitHuman({type:'abort'});
+  render(CUR.S,CUR);
+  CUR.start();
+}
+$('newgame').onclick=newGame;
+
+// rules reference
+$('ref').innerHTML='';
+[['bomb','Rivais'],['defuse','1 por jogador + 2'],...Object.entries(COUNTS).filter(([t])=>!isRat(t))].forEach(([t,q])=>{
+  const it=document.createElement('div'); it.className='item';
+  it.append(cardEl({t},{tag:'div',cls:'static'}));
+  it.insertAdjacentHTML('beforeend',`<p><span class="qty">${typeof q==='number'?q+' no baralho':q}</span>${isRat(t)?'<b>Cobaias.</b> ':''}${DEF[t].d}</p>`);
+  $('ref').append(it);
+});
+{
+  const it=document.createElement('div'); it.className='rats';
+  it.innerHTML='<p><span class="qty">5 tipos × 4 no baralho</span><b>Cobaias.</b> '+RAT+'</p>';
+  const row=document.createElement('div'); row.className='ratrow';
+  ['ratA','ratB','ratM','ratT','ratC'].forEach(t=>row.append(cardEl({t},{tag:'div',cls:'static'})));
+  it.append(row); $('ref').append(it);
+}
+
+newGame();
+</script>
+</body>
+</html>
