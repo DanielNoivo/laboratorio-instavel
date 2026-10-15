@@ -183,6 +183,38 @@ details.rules summary{cursor:pointer;font-weight:600}
   .boom{animation:flash .5s forwards}
   @keyframes flash{0%{opacity:.6}100%{opacity:0}}
 }
+
+/* entrada e sala */
+.lobby,.room,.game{display:grid;gap:16px}
+.intro{display:grid;gap:14px;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);align-items:end}
+@media (max-width:720px){.intro{grid-template-columns:minmax(0,1fr)}}
+.lede{margin:0;font-family:var(--f-display);font-weight:600;font-size:clamp(18px,2.6vw,23px);line-height:1.25;max-width:40ch;text-wrap:balance}
+.field{display:grid;gap:5px}
+.field label,.row label{font-size:13px;color:var(--muted)}
+input{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
+input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+#code{font-family:var(--f-mono);font-weight:600;letter-spacing:.18em;text-transform:uppercase;width:9.5em}
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.mode{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;display:grid;gap:8px;align-content:start}
+.mode h2{margin:0;font-family:var(--f-display);font-weight:800;font-size:21px;line-height:1.1}
+.mode p{margin:0;color:var(--muted);font-size:14px}
+.mode .btn{justify-self:start}
+.step{font:600 11px var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--accent)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.msg{margin:0;min-height:1.4em;color:var(--g-hazard);font-weight:500}
+.msg.ok{color:var(--muted)}
+.room{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;max-width:560px}
+.codebox{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.codebox .lbl{width:100%;font:600 11px var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.code{font-family:var(--f-mono);font-weight:600;font-size:clamp(34px,8vw,46px);letter-spacing:.16em;line-height:1;user-select:all}
+.roomhint{margin:0;color:var(--muted);max-width:60ch}
+.seats{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.seats li{display:flex;justify-content:space-between;gap:8px;padding:9px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.seats li .k{font:600 11px var(--f-mono);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.seats li.empty{border-style:dashed;color:var(--muted);background:transparent}
+.roomtag{font:600 12px var(--f-mono);letter-spacing:.12em;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:4px 7px}
+.bot{font:600 10px var(--f-mono);color:var(--muted);border:1px solid var(--line);border-radius:3px;padding:0 4px;margin-left:6px;text-transform:uppercase;letter-spacing:.06em}
+
 </style>
 
 </head>
@@ -191,50 +223,96 @@ details.rules summary{cursor:pointer;font-weight:600}
   <header class="top">
     <div class="brand">
       <div class="mark" aria-hidden="true">Li</div>
-      <div><h1>Laboratório Instável</h1><p>Protótipo · regras base</p></div>
+      <div><h1>Laboratório Instável</h1><p id="subtitle">Jogo de cartas · 2 a 4 cientistas</p></div>
     </div>
     <div class="ctrls">
-      <label for="nb">Rivais</label>
-      <select id="nb"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select>
-      <button class="btn" id="newgame">Novo jogo</button>
+      <span class="roomtag" id="roomtag" hidden></span>
+      <button class="btn" id="quit" hidden>Sair</button>
     </div>
   </header>
 
-  <section class="rivals" id="rivals" aria-label="Rivais"></section>
-
-  <section class="table">
-    <div class="bench">
-      <div class="status" id="status" aria-live="polite"></div>
-      <div class="piles">
-        <div class="pile"><span class="lbl">Baralho</span><button class="deck" id="deck" aria-label="Tirar carta do baralho"></button></div>
-        <div class="pile"><span class="lbl">Descarte</span><div id="discard"></div></div>
+  <!-- entrada -->
+  <section id="lobby" class="lobby">
+    <div class="intro">
+      <p class="lede">Tira cartas, evita as poções instáveis e sê o último cientista inteiro. Joga contra o computador ou com colegas, cada um no seu computador.</p>
+      <div class="field"><label for="pname">O teu nome</label><input id="pname" maxlength="16" autocomplete="nickname" placeholder="Ex.: Dra. Marta"></div>
+    </div>
+    <div class="modes">
+      <div class="mode">
+        <span class="step">Com colegas</span>
+        <h2>Criar sala</h2>
+        <p>Recebes um código de 5 letras para enviares aos teus colegas.</p>
+        <button id="host" class="btn primary">Criar sala</button>
       </div>
-      <div class="meter">
-        <div class="bar"><div class="fill" id="riskfill"></div></div>
-        <div class="txt" id="risktxt"></div>
+      <div class="mode">
+        <span class="step">Com colegas</span>
+        <h2>Entrar numa sala</h2>
+        <p>Escreve o código que o anfitrião te enviou.</p>
+        <div class="row"><input id="code" maxlength="5" placeholder="K7QFM" aria-label="Código da sala" autocomplete="off" spellcheck="false"><button id="join" class="btn primary">Entrar</button></div>
+      </div>
+      <div class="mode">
+        <span class="step">Sozinho</span>
+        <h2>Contra o computador</h2>
+        <p>Treina contra 1 a 3 robôs.</p>
+        <div class="row"><label for="nb">Robôs</label><select id="nb"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select><button id="solo" class="btn">Começar</button></div>
       </div>
     </div>
-    <div class="notebook">
-      <h2>Caderno de laboratório</h2>
-      <ol class="log" id="log"></ol>
+    <p class="msg" id="lobbymsg" role="status" aria-live="polite"></p>
+  </section>
+
+  <!-- sala -->
+  <section id="room" class="room" hidden>
+    <div class="codebox">
+      <span class="lbl">Código da sala</span>
+      <span class="code" id="roomcode"></span>
+      <button id="copycode" class="btn">Copiar código</button>
+    </div>
+    <p class="roomhint" id="roomhint"></p>
+    <ol class="seats" id="seats"></ol>
+    <div class="row" id="hostctrls">
+      <label for="nbots">Robôs extra</label><select id="nbots"></select>
+      <button id="startroom" class="btn primary">Começar partida</button>
     </div>
   </section>
 
-  <section class="me" id="me">
-    <div class="mehead"><h2>A tua mão</h2><span class="turninfo" id="turninfo"></span></div>
-    <div class="spec" id="spec"></div>
-    <div class="hand" id="hand"></div>
-    <div class="actions">
-      <button class="btn primary" id="play" disabled>Jogar seleção</button>
-      <button class="btn" id="draw" disabled>Tirar carta e terminar</button>
-    </div>
+  <!-- jogo -->
+  <section id="game" class="game" hidden>
+    <section class="rivals" id="rivals" aria-label="Rivais"></section>
+
+    <section class="table">
+      <div class="bench">
+        <div class="status" id="status" aria-live="polite"></div>
+        <div class="piles">
+          <div class="pile"><span class="lbl">Baralho</span><button class="deck" id="deck" aria-label="Tirar carta do baralho"></button></div>
+          <div class="pile"><span class="lbl">Descarte</span><div id="discard"></div></div>
+        </div>
+        <div class="meter">
+          <div class="bar"><div class="fill" id="riskfill"></div></div>
+          <div class="txt" id="risktxt"></div>
+        </div>
+      </div>
+      <div class="notebook">
+        <h2>Caderno de laboratório</h2>
+        <ol class="log" id="log"></ol>
+      </div>
+    </section>
+
+    <section class="me" id="me">
+      <div class="mehead"><h2 id="mytitle">A tua mão</h2><span class="turninfo" id="turninfo"></span></div>
+      <div class="spec" id="spec"></div>
+      <div class="hand" id="hand"></div>
+      <div class="actions">
+        <button class="btn primary" id="play" disabled>Jogar seleção</button>
+        <button class="btn" id="draw" disabled>Tirar carta e terminar</button>
+      </div>
+    </section>
   </section>
 
   <details class="rules">
     <summary>Regras e cartas</summary>
     <div class="rules-body">
       <ol>
-        <li>Cada cientista começa com 1 Neutralizador e 7 cartas. No baralho ficam escondidas tantas Poções Instáveis quantos rivais houver.</li>
+        <li>Cada cientista começa com 1 Neutralizador e 7 cartas. No baralho ficam escondidas tantas Poções Instáveis quantos jogadores houver, menos uma.</li>
         <li>No teu turno, joga as cartas de ação que quiseres. Depois tira uma carta do baralho, e o turno acaba.</li>
         <li>Se tirares uma Poção Instável, usa um Neutralizador e escolhe onde a esconder no baralho. Sem Neutralizador, explodes.</li>
         <li>O Protocolo Negado anula a ação de outro jogador. O jogo pergunta-te quando o podes usar.</li>
@@ -247,6 +325,7 @@ details.rules summary{cursor:pointer;font-weight:600}
 
 <div class="overlay" id="modal" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="mtitle"></div></div>
 
+<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <script>
 const RAT='Sozinha não faz nada. Joga 2 cobaias iguais para roubar uma carta ao acaso a outro jogador.';
 const DEF={
@@ -395,91 +474,160 @@ function openModal({kicker='',title,body='',cards=null,pick=false,buttons=[],tim
   });
 }
 
-/* ---------- game ---------- */
-const ABORT=Symbol('abort');
-let CUR=null;
+/* ---------- regras partilhadas ---------- */
+function validPlay(hand,ids){
+  if(!Array.isArray(ids)) return {ok:false,cards:[]};
+  const cards=ids.map(id=>hand.find(c=>c.id===id)).filter(Boolean);
+  if(cards.length!==ids.length||new Set(ids).size!==ids.length||!cards.length) return {ok:false,cards};
+  if(cards.length===1){
+    const t=cards[0].t;
+    if(ACTIONS.includes(t)) return {ok:true,cards,needsTarget:t==='favor'};
+    if(isRat(t)) return {ok:false,cards,msg:'Escolhe outra cobaia igual para formar um par.'};
+    if(t==='nope') return {ok:false,cards,msg:'Esta carta usa-se como reação. O jogo pergunta-te quando a podes jogar.'};
+    return {ok:false,cards,msg:'Usa-se sozinha quando tiras uma Poção Instável.'};
+  }
+  if(cards.length===2&&cards[0].t===cards[1].t&&isRat(cards[0].t)) return {ok:true,cards,needsTarget:true};
+  return {ok:false,cards,msg:'Só podes jogar uma carta de ação, ou duas cobaias iguais.'};
+}
 
-function createGame(nBots){
+/* ---------- motor (corre só no anfitrião) ---------- */
+const ABORT=Symbol('abort');
+const NOPE_MS=6000;
+let CUR=null, GAME_SEQ=0;
+
+function createGame(seats){
   let nid=0; const mk=t=>({id:nid++,t});
   const pool=[];
   for(const t in COUNTS) for(let i=0;i<COUNTS[t];i++) pool.push(mk(t));
   shuffleArr(pool);
-  const players=[{name:'Tu',human:true},...BOTS.slice(0,nBots).map(n=>({name:n,human:false}))]
-    .map(p=>({...p,hand:[],alive:true}));
+  const players=seats.map(s=>({name:s.name,kind:s.kind,conn:s.conn||null,hand:[],alive:true}));
   for(const p of players){ p.hand.push(mk('defuse')); for(let i=0;i<7;i++) p.hand.push(pool.pop()); }
   const extra=Math.min(2,6-players.length);
   for(let i=0;i<extra;i++) pool.push(mk('defuse'));
   for(let i=0;i<players.length-1;i++) pool.push(mk('bomb'));
   shuffleArr(pool);
 
-  const S={players,deck:pool,discard:[],cur:0,turns:1,turnNo:1,sel:new Set(),log:[],over:false,know:{},fresh:null};
-  const api={S,waitHuman:null};
+  const S={id:++GAME_SEQ,players,deck:pool,discard:[],cur:rnd(players.length),turns:1,turnNo:1,log:[],over:false,winner:null,
+           know:{},fresh:{},boomSeq:0,pending:new Set(),remote:new Map()};
+  const api={S};
+  let askSeq=0, drawQueued=false;
   const chk=()=>{ if(CUR!==api) throw ABORT; };
   const wait=async ms=>{ await sleep(ms); chk(); };
-  const ask=async o=>{ chk(); const v=await openModal(o); chk(); return v; };
-  const draw=()=>{ if(CUR===api) render(S,api); };
-  const log=(html,kind='')=>{ S.log.unshift({t:S.turnNo,html,kind}); if(S.log.length>80) S.log.pop(); draw(); };
-  const who=(i,obj)=>S.players[i].human?(obj?'ti':'Tu'):`<b>${esc(S.players[i].name)}</b>`;
-  const v=(i,tu,ele)=>S.players[i].human?tu:ele;
+  const sortHand=p=>p.hand.sort((a,b)=>ORDER.indexOf(a.t)-ORDER.indexOf(b.t));
+  players.forEach(sortHand);
+
+  /* vistas: cada jogador só vê a sua mão */
+  function viewFor(v){
+    return {gameId:S.id,me:v,
+      players:S.players.map(p=>({name:p.name,count:p.hand.length,alive:p.alive,bot:p.kind==='bot'})),
+      hand:S.players[v].hand, deck:S.deck.length, bombs:bombsLeft(), discardTop:S.discard[S.discard.length-1]||null,
+      cur:S.cur, turns:S.turns, over:S.over, winner:S.winner, boomSeq:S.boomSeq, fresh:S.fresh[v]??null,
+      log:S.log.slice(0,50).map(e=>({t:e.t,kind:e.kind,html:e.html[v]}))};
+  }
+  function flush(){
+    drawQueued=false; if(CUR!==api) return;
+    S.players.forEach((p,i)=>{
+      if(p.kind==='local') applyView(viewFor(i));
+      else if(p.kind==='remote') safeSend(p.conn,{type:'view',view:viewFor(i)});
+    });
+    S.fresh={};
+  }
+  const draw=()=>{ if(!drawQueued){ drawQueued=true; queueMicrotask(flush); } };
+
+  /* registo: cada entrada é escrita do ponto de vista de cada jogador */
+  const L=(fn,kind='')=>{ S.log.unshift({t:S.turnNo,kind,html:S.players.map((_,v)=>fn(v))}); if(S.log.length>80) S.log.pop(); draw(); };
+  const who=(i,v,obj)=>i===v?(obj?'ti':'Tu'):`<b>${esc(S.players[i].name)}</b>`;
+  const vb=(i,v,tu,ele)=>i===v?tu:ele;
   const aliveIdx=()=>S.players.map((p,i)=>p.alive?i:-1).filter(i=>i>=0);
   const nextAlive=i=>{let j=i;do{j=(j+1)%S.players.length}while(!S.players[j].alive);return j};
-  const bombsLeft=()=>S.deck.filter(c=>c.t==='bomb').length;
-  const sortHand=p=>p.hand.sort((a,b)=>ORDER.indexOf(a.t)-ORDER.indexOf(b.t));
+  function bombsLeft(){ return S.deck.filter(c=>c.t==='bomb').length; }
+  const humansAlive=()=>S.players.some(p=>p.alive&&p.kind!=='bot');
 
-  function startTurnOf(i,turns){ S.cur=i; S.turns=turns; S.turnNo++; S.sel.clear(); draw(); }
+  function startTurnOf(i,turns){ S.cur=i; S.turns=turns; S.turnNo++; draw(); }
   function endOneTurn(){ S.turns--; if(S.turns<=0) startTurnOf(nextAlive(S.cur),1); else draw(); }
 
-  /* bot memory of the top of the deck */
+  /* pedidos a jogadores: local, remoto ou robô */
+  function ask(pi,req,{timeout=0,fallback=null}={}){
+    const p=S.players[pi];
+    let done=false, res, tm=null;
+    const raw=new Promise(r=>res=r);
+    const h={pi,id:++askSeq,cancel:null};
+    const finish=v=>{ if(done) return; done=true; clearTimeout(tm); S.pending.delete(h); S.remote.delete(h.id); res(v); };
+    h.finish=finish; h.raw=raw;
+    h.abort=v=>{ if(done) return; h.cancel?.(); finish(v===undefined?fallback:v); };
+    S.pending.add(h);
+    if(p.kind==='local'){ uiAsk(req).then(finish); h.cancel=()=>cancelLocalAsk(req.type); }
+    else if(p.kind==='remote'){ S.remote.set(h.id,h); h.cancel=()=>safeSend(p.conn,{type:'cancel',id:h.id}); safeSend(p.conn,{type:'ask',id:h.id,req}); }
+    else finish(fallback);
+    if(timeout) tm=setTimeout(()=>h.abort(fallback),timeout);
+    h.promise=raw.then(v=>{ chk(); return v; });
+    return h;
+  }
+  api.onAnswer=(conn,id,value)=>{ const h=S.remote.get(id); if(!h||S.players[h.pi].conn!==conn) return; h.finish(value); };
+  api.onDisconnect=conn=>{
+    const pi=S.players.findIndex(p=>p.conn===conn); if(pi<0) return;
+    const p=S.players[pi]; p.kind='bot'; p.conn=null;
+    L(()=>`<b>${esc(p.name)}</b> perdeu a ligação. Um robô fica com o lugar.`,'muted');
+    [...S.pending].filter(h=>h.pi===pi).forEach(h=>h.abort(null));
+  };
+  api.abortAll=()=>{ [...S.pending].forEach(h=>h.abort(null)); };
+  api.seats=()=>S.players.map(p=>({name:p.name,kind:p.kind,conn:p.conn}));
+
+  /* memória dos robôs sobre o topo do baralho */
   function knownTop(pi){
     const k=S.know[pi]; if(!k) return [];
     for(let i=0;i<k.length;i++) if(!S.deck[i]||S.deck[i].id!==k[i]){ delete S.know[pi]; return []; }
     return k.map((_,i)=>S.deck[i]);
   }
-  function shiftKnowledge(drawnId){
-    for(const k in S.know){ if(S.know[k][0]===drawnId) S.know[k].shift(); else delete S.know[k]; }
-  }
+  function shiftKnowledge(id){ for(const k in S.know){ if(S.know[k][0]===id) S.know[k].shift(); else delete S.know[k]; } }
 
   function transfer(from,to,card){
     const f=S.players[from], t=S.players[to];
-    f.hand=f.hand.filter(c=>c.id!==card.id); t.hand.push(card); sortHand(t);
-    if(t.human) S.fresh=card.id;
+    f.hand=f.hand.filter(c=>c.id!==card.id); t.hand.push(card); sortHand(t); S.fresh[to]=card.id;
   }
   function worstCard(pi){
-    const h=S.players[pi].hand;
     const rank=t=>isRat(t)?0:({shuffle:1,future:2,favor:3,skip:4,attack:5,nope:6,defuse:9}[t]??1);
-    return [...h].sort((a,b)=>rank(a.t)-rank(b.t))[0];
+    return [...S.players[pi].hand].sort((a,b)=>rank(a.t)-rank(b.t))[0];
   }
 
-  /* Protocolo Negado chain */
+  /* Protocolo Negado: todos os elegíveis são perguntados ao mesmo tempo; o primeiro a aceitar ganha */
   function botWantsNope(qi,actor,target,cancelled,t){
-    if(cancelled) return qi===actor && Math.random()<0.5;
+    if(cancelled) return qi===actor&&Math.random()<0.5;
     if(qi===actor) return false;
-    const hit = qi===target || (t==='attack' && nextAlive(actor)===qi);
-    return Math.random() < (hit?0.55:0.08);
+    const hit=qi===target||(t==='attack'&&nextAlive(actor)===qi);
+    return Math.random()<(hit?0.55:0.08);
+  }
+  function firstYes(list){
+    return new Promise(res=>{
+      let left=list.length; if(!left) return res(null);
+      list.forEach(p=>p.then(v=>{ if(v!==false&&v!=null) res(v); else if(--left===0) res(null); },()=>{ if(--left===0) res(null); }));
+    });
   }
   async function nopeWindow(actor,t,target){
     let cancelled=false, last=actor;
     for(;;){
-      let responder=null;
-      const order=shuffleArr(aliveIdx().filter(i=>i!==last));
-      for(const qi of order){
-        const q=S.players[qi];
-        if(!q.hand.some(c=>c.t==='nope')) continue;
-        if(q.human){
-          const relevant = cancelled ? qi===actor : qi!==actor;
-          if(!relevant) continue;
-          const body = cancelled
-            ? `${who(last)} anulou a tua ação. Queres anular a anulação com outro Protocolo Negado?`
-            : `${who(actor)} jogou ${chip(t)}${target!=null?` contra ${who(target,true)}`:''}. Queres anulá-la?`;
-          const yes=await ask({kicker:'Reação',title:'Usar Protocolo Negado?',body,buttons:[{label:'Anular',value:true,primary:true},{label:'Deixar passar',value:false}],timeout:5000,timeoutValue:false});
-          if(yes){responder=qi;break;}
-        } else if(botWantsNope(qi,actor,target,cancelled,t)){ responder=qi; break; }
-      }
-      if(responder==null) break;
+      const hasNope=qi=>S.players[qi].hand.some(c=>c.t==='nope');
+      const eligible=aliveIdx().filter(qi=>qi!==last&&hasNope(qi)&&(cancelled?qi===actor:qi!==actor));
+      if(!eligible.length) break;
+      const handles=[];
+      const answers=eligible.map(qi=>{
+        if(S.players[qi].kind==='bot'){
+          return botWantsNope(qi,actor,target,cancelled,t)?sleep(500+rnd(900)).then(()=>qi):Promise.resolve(false);
+        }
+        const html=cancelled
+          ? `${who(last,qi)} anulou a tua ação. Queres repô-la com outro Protocolo Negado?`
+          : `${who(actor,qi)} jogou ${chip(t)}${target!=null?` contra ${who(target,qi,true)}`:''}. Queres anular?`;
+        const h=ask(qi,{type:'nope',html,timeout:NOPE_MS},{timeout:NOPE_MS+500,fallback:false});
+        handles.push(h);
+        return h.raw.then(v=>v===true?qi:false);
+      });
+      const responder=await firstYes(answers); chk();
+      handles.forEach(h=>h.abort(false));
+      if(responder==null||!hasNope(responder)) break;
       const q=S.players[responder]; const n=q.hand.find(c=>c.t==='nope');
       q.hand=q.hand.filter(c=>c!==n); S.discard.push(n);
       cancelled=!cancelled; last=responder;
-      log(`${who(responder)} ${v(responder,'jogaste','jogou')} ${chip('nope')}.`);
+      L(v=>`${who(responder,v)} ${vb(responder,v,'jogaste','jogou')} ${chip('nope')}.`);
       await wait(650);
     }
     return cancelled;
@@ -489,88 +637,73 @@ function createGame(nBots){
     const p=S.players[pi];
     const cards=ids.map(id=>p.hand.find(c=>c.id===id));
     p.hand=p.hand.filter(c=>!ids.includes(c.id));
-    S.discard.push(...cards); S.sel.clear();
+    S.discard.push(...cards);
     const t=cards[0].t, pair=cards.length===2;
-    log(`${who(pi)} ${v(pi,'jogaste','jogou')} ${chip(t)}${pair?' ×2':''}${target!=null?` contra ${who(target,true)}`:''}.`);
+    L(v=>`${who(pi,v)} ${vb(pi,v,'jogaste','jogou')} ${chip(t)}${pair?' ×2':''}${target!=null?` contra ${who(target,v,true)}`:''}.`);
     await wait(500);
-    if(await nopeWindow(pi,t,target)){ log('A ação ficou anulada.','muted'); return; }
+    if(await nopeWindow(pi,t,target)){ L(()=>'A ação ficou anulada.','muted'); return; }
 
-    if(pair || t==='favor'){
+    if(pair||t==='favor'){
       const tp=S.players[target];
-      if(!tp.hand.length){ log(`${who(target)} não ${v(target,'tens','tem')} cartas para dar.`,'muted'); return; }
+      if(!tp.hand.length){ L(v=>`${who(target,v)} não ${vb(target,v,'tens','tem')} cartas para dar.`,'muted'); return; }
       let card;
-      if(pair){ card=tp.hand[rnd(tp.hand.length)]; }
-      else if(tp.human){
-        sortHand(tp);
-        const id=await ask({kicker:'Pedir Amostra',title:`${esc(p.name)} pede-te uma carta`,body:'Escolhe a carta que vais dar.',cards:tp.hand.map(c=>({card:c,value:c.id})),pick:true});
+      if(pair) card=tp.hand[rnd(tp.hand.length)];
+      else if(tp.kind!=='bot'){
+        const id=await ask(target,{type:'give',from:p.name},{timeout:30000,fallback:null}).promise;
         card=tp.hand.find(c=>c.id===id)||worstCard(target);
       } else card=worstCard(target);
       transfer(target,pi,card);
-      if(p.human) log(`Recebeste ${chip(card.t)} de ${who(target)}.`);
-      else if(tp.human) log(`Deste ${chip(card.t)} a ${who(pi)}.`);
-      else log(`${who(target)} deu uma carta a ${who(pi)}.`);
+      L(v=> v===pi?`Recebeste ${chip(card.t)} de ${who(target,v)}.`
+          : v===target?`Deste ${chip(card.t)} a ${who(pi,v)}.`
+          : `${who(target,v)} deu uma carta a ${who(pi,v)}.`);
       return;
     }
     switch(t){
-      case 'skip': log(`${who(pi)} ${v(pi,'escapaste','escapou')} pela conduta.`,'muted'); endOneTurn(); break;
-      case 'attack': { const nx=nextAlive(pi); log(`${who(nx)} ${v(nx,'jogas','joga')} 2 turnos seguidos.`,'muted'); startTurnOf(nx,2); break; }
-      case 'shuffle': shuffleArr(S.deck); S.know={}; log('O baralho foi centrifugado.','muted'); break;
+      case 'skip': L(v=>`${who(pi,v)} ${vb(pi,v,'escapaste','escapou')} pela conduta.`,'muted'); endOneTurn(); break;
+      case 'attack': { const nx=nextAlive(pi); L(v=>`${who(nx,v)} ${vb(nx,v,'jogas','joga')} 2 turnos seguidos.`,'muted'); startTurnOf(nx,2); break; }
+      case 'shuffle': shuffleArr(S.deck); S.know={}; L(()=>'O baralho foi centrifugado.','muted'); break;
       case 'future': {
         const top=S.deck.slice(0,3);
-        if(p.human){
-          await ask({kicker:'Microscópio',title:'Topo do baralho',body:'A primeira é a próxima a sair.',cards:top.map((c,i)=>({card:c,label:i===0?'1.ª · topo':`${i+1}.ª`})),buttons:[{label:'Fechar',value:true,primary:true}]});
-        } else { S.know[pi]=top.map(c=>c.id); log(`${who(pi)} espreitou o topo do baralho.`,'muted'); }
+        L(v=>`${who(pi,v)} ${vb(pi,v,'espreitaste','espreitou')} o topo do baralho.`,'muted');
+        if(p.kind==='bot') S.know[pi]=top.map(c=>c.id);
+        else await ask(pi,{type:'see',cards:top},{timeout:30000,fallback:true}).promise;
         break;
       }
     }
-  }
-
-  function boom(){
-    if(CUR!==api) return;
-    const b=document.createElement('div'); b.className='boom'; document.body.append(b);
-    setTimeout(()=>b.remove(),1000);
-    const app=$('app'); app.classList.remove('shake'); void app.offsetWidth; app.classList.add('shake');
   }
 
   async function doDraw(pi){
     const p=S.players[pi];
     const c=S.deck.shift(); shiftKnowledge(c.id);
     if(c.t!=='bomb'){
-      p.hand.push(c); sortHand(p);
-      if(p.human){ S.fresh=c.id; log(`Tiraste ${chip(c.t)}.`); } else log(`${who(pi)} tirou uma carta.`,'muted');
+      p.hand.push(c); sortHand(p); S.fresh[pi]=c.id;
+      L(v=>v===pi?`Tiraste ${chip(c.t)}.`:`${who(pi,v)} tirou uma carta.`, '');
       await wait(350); endOneTurn(); return;
     }
-    log(`${who(pi)} ${v(pi,'tiraste','tirou')} uma ${chip('bomb')}!`,'hazard');
-    draw(); await wait(700);
+    L(v=>`${who(pi,v)} ${vb(pi,v,'tiraste','tirou')} uma ${chip('bomb')}!`,'hazard');
+    await wait(700);
     const d=p.hand.find(x=>x.t==='defuse');
     if(d){
       p.hand=p.hand.filter(x=>x!==d); S.discard.push(d);
-      log(`${who(pi)} ${v(pi,'usaste','usou')} ${chip('defuse')}.`);
-      let pos; const n=S.deck.length;
-      if(p.human){
-        const choice=await ask({kicker:'Neutralizada',title:'Onde escondes a poção?',body:`O baralho tem ${n} cartas. A posição 1 é a próxima a sair.`,tone:'',
-          buttons:[{label:'No topo',value:0,primary:true},{label:'2.ª posição',value:1,disabled:n<1},{label:'3.ª posição',value:2,disabled:n<2},{label:'No meio',value:'mid'},{label:'No fundo',value:'bottom'},{label:'Ao acaso',value:'rand'}]});
-        pos = choice==='mid'?Math.floor(n/2) : choice==='bottom'?n : choice==='rand'||choice==null?rnd(n+1) : Math.min(choice,n);
-      } else {
-        pos = Math.random()<0.35 ? 0 : rnd(n+1);
+      L(v=>`${who(pi,v)} ${vb(pi,v,'usaste','usou')} ${chip('defuse')}.`);
+      const n=S.deck.length; let pos;
+      if(p.kind==='bot') pos=Math.random()<0.35?0:rnd(n+1);
+      else{
+        const ch=await ask(pi,{type:'insert',n},{timeout:30000,fallback:'rand'}).promise;
+        pos= ch==='mid'?Math.floor(n/2) : ch==='bottom'?n : (Number.isInteger(ch)&&ch>=0)?Math.min(ch,n) : rnd(n+1);
       }
       S.deck.splice(pos,0,c); S.know={};
-      if(!p.human && pos<3) S.know[pi]=S.deck.slice(0,pos+1).map(x=>x.id);
-      log(`${who(pi)} ${v(pi,'escondeste','escondeu')} a poção de volta no baralho.`,'muted');
+      if(p.kind==='bot'&&pos<3) S.know[pi]=S.deck.slice(0,pos+1).map(x=>x.id);
+      L(v=>`${who(pi,v)} ${vb(pi,v,'escondeste','escondeu')} a poção de volta no baralho.`,'muted');
       await wait(400); endOneTurn(); return;
     }
-    p.alive=false; S.discard.push(c,...p.hand); p.hand=[];
-    boom();
-    log(`${who(pi)} ${v(pi,'explodiste','explodiu')}.`,'hazard');
+    p.alive=false; S.discard.push(c,...p.hand); p.hand=[]; S.boomSeq++;
+    L(v=>`${who(pi,v)} ${vb(pi,v,'explodiste','explodiu')}.`,'hazard');
     await wait(1000);
     const al=aliveIdx();
-    if(p.human || al.length===1){
-      S.over=true; draw();
-      const won=!p.human;
-      const res=await ask({kicker:'Fim da experiência',title:won?'Ganhaste!':'Explodiste',tone:won?'':'hazard',
-        body:won?'És o último cientista inteiro no laboratório.':`Ficaram ${al.length} ${al.length===1?'rival':'rivais'} de pé. Melhor sorte na próxima.`,
-        buttons:[{label:'Jogar outra vez',value:'again',primary:true},{label:'Ver a mesa',value:'stay'}]});
-      if(res==='again') newGame();
+    if(al.length===1){
+      S.over=true; S.winner=al[0];
+      L(v=>`${who(al[0],v)} ${vb(al[0],v,'ganhaste','ganhou')} a partida.`);
       return;
     }
     startTurnOf(nextAlive(pi),1);
@@ -585,91 +718,155 @@ function createGame(nBots){
     const opps=aliveIdx().filter(i=>i!==pi&&S.players[i].hand.length>0).sort((a,b)=>S.players[b].hand.length-S.players[a].hand.length);
     const tgt=opps[0];
     const ratT=['ratA','ratB','ratM','ratT','ratC'].find(t=>of(t).length>=2);
-    if(tgt!=null && ratT && Math.random()<0.5) return {type:'play',ids:of(ratT).slice(0,2).map(c=>c.id),target:tgt};
-    if(tgt!=null && of('favor').length && Math.random()<0.3) return {...one('favor'),target:tgt};
+    if(tgt!=null&&ratT&&Math.random()<0.5) return {type:'play',ids:of(ratT).slice(0,2).map(c=>c.id),target:tgt};
+    if(tgt!=null&&of('favor').length&&Math.random()<0.3) return {...one('favor'),target:tgt};
     if(kn.length) return {type:'draw'};
-    if(of('future').length && risk>0.1 && Math.random()<0.6) return one('future');
-    if(!hasDef && risk>0.18){ for(const t of ['attack','skip']) if(of(t).length && Math.random()<0.75) return one(t); }
-    if(hasDef && risk>0.4 && of('attack').length) return one('attack');
+    if(of('future').length&&risk>0.1&&Math.random()<0.6) return one('future');
+    if(!hasDef&&risk>0.18){ for(const t of ['attack','skip']) if(of(t).length&&Math.random()<0.75) return one(t); }
+    if(hasDef&&risk>0.4&&of('attack').length) return one('attack');
     return {type:'draw'};
+  }
+
+  function checkAct(pi,act){
+    if(!act||typeof act!=='object') return null;
+    if(act.type==='draw') return {type:'draw'};
+    if(act.type!=='play') return null;
+    const vp=validPlay(S.players[pi].hand,act.ids); if(!vp.ok) return null;
+    if(vp.needsTarget){
+      const tg=act.target;
+      if(!Number.isInteger(tg)||tg===pi||!S.players[tg]?.alive) return null;
+      return {type:'play',ids:act.ids,target:tg};
+    }
+    return {type:'play',ids:act.ids};
   }
 
   api.start=async()=>{
     try{
-      log('A experiência começou. Boa sorte.','muted');
+      L(v=>`A experiência começou. ${who(S.cur,v)} ${vb(S.cur,v,'começas','começa')}.`,'muted');
       while(!S.over){
         const pi=S.cur, p=S.players[pi];
         let act;
-        if(p.human){ act=await new Promise(r=>{api.waitHuman=r; draw();}); api.waitHuman=null; chk(); }
-        else { await wait(900); act=botChoose(pi); }
+        if(p.kind==='bot'){ await wait(humansAlive()?900:250); act=botChoose(pi); }
+        else{
+          act=checkAct(pi,await ask(pi,{type:'turn'}).promise);
+          if(!act) continue;
+        }
         if(act.type==='draw') await doDraw(pi); else await doPlay(pi,act.ids,act.target);
       }
     }catch(e){ if(e!==ABORT) console.error(e); }
   };
-  api.selInfo=()=>{
-    const me=S.players[0];
-    const cards=[...S.sel].map(id=>me.hand.find(c=>c.id===id)).filter(Boolean);
-    if(!cards.length) return {ok:false,cards};
-    if(cards.length===1){
-      const t=cards[0].t;
-      if(ACTIONS.includes(t)) return {ok:true,cards,needsTarget:t==='favor'};
-      if(isRat(t)) return {ok:false,cards,msg:'Escolhe outra cobaia igual para formar um par.'};
-      if(t==='nope') return {ok:false,cards,msg:'Esta carta usa-se como reação. O jogo pergunta-te quando a podes jogar.'};
-      return {ok:false,cards,msg:'Usa-se sozinha quando tiras uma Poção Instável.'};
-    }
-    if(cards.length===2 && cards[0].t===cards[1].t && isRat(cards[0].t)) return {ok:true,cards,needsTarget:true};
-    return {ok:false,cards,msg:'Só podes jogar uma carta de ação, ou duas cobaias iguais.'};
-  };
-  api.targets=()=>aliveIdx().filter(i=>i!==0);
   return api;
 }
 
-/* ---------- render ---------- */
-function render(S,api){
-  const me=S.players[0], myTurn=!!api.waitHuman;
-  // rivals
-  $('rivals').innerHTML=S.players.slice(1).map((p,k)=>{
-    const i=k+1, turn=S.cur===i&&p.alive&&!S.over;
-    const state=!p.alive?'Explodiu':turn?(S.turns>1?`A jogar · ${S.turns} turnos`:'A jogar'):'À espera';
-    const minis=Array.from({length:Math.min(p.hand.length,12)},()=>'<span class="mini"></span>').join('');
-    return `<div class="station ${turn?'turn':''} ${p.alive?'':'out'}"><div class="row"><span class="nm">${esc(p.name)}</span><span class="state">${state}</span></div>
-      <div class="minis">${minis}<span class="count">${p.hand.length} ${p.hand.length===1?'carta':'cartas'}</span></div></div>`;
-  }).join('');
-  // status
-  const curP=S.players[S.cur];
-  $('status').textContent = S.over ? 'Experiência terminada.' :
-    S.cur===0 ? (S.turns>1?`É a tua vez. Tens ${S.turns} turnos para jogar.`:'É a tua vez. Joga cartas ou tira uma do baralho.') :
-    `${curP.name} está a jogar…`;
-  // deck
-  const deck=$('deck');
-  deck.innerHTML=`<span class="tag"><b>${S.deck.length}</b>amostras</span>`;
-  deck.disabled=!myTurn; deck.classList.toggle('ready',myTurn);
-  // discard
-  const top=S.discard[S.discard.length-1];
-  $('discard').replaceChildren(top?cardEl(top,{tag:'div',cls:'static'}):Object.assign(document.createElement('div'),{className:'empty-slot',textContent:'Vazio'}));
-  // risk
-  const b=S.deck.filter(c=>c.t==='bomb').length, pct=S.deck.length?Math.round(b/S.deck.length*100):0;
-  $('riskfill').style.width=Math.min(100,pct*2)+'%';
-  $('risktxt').innerHTML=`<span>${b} ${b===1?'poção instável':'poções instáveis'} no baralho</span><span>Risco na próxima carta: ${pct}%</span>`;
-  // log
-  $('log').innerHTML=S.log.map(e=>`<li class="${e.kind}"><span class="t">T${String(e.t).padStart(2,'0')}</span><span>${e.html}</span></li>`).join('');
-  // me
-  $('me').classList.toggle('turn',myTurn);
-  const defs=me.hand.filter(c=>c.t==='defuse').length;
-  $('turninfo').textContent = !me.alive?'Fora de jogo': myTurn?(S.turns>1?`Tua vez · ${S.turns} turnos`:'Tua vez'):`${me.hand.length} cartas · ${defs} ${defs===1?'neutralizador':'neutralizadores'}`;
-  const hand=$('hand'); hand.innerHTML='';
-  for(const c of me.hand){
-    const el=cardEl(c,{cls:(S.sel.has(c.id)?'sel ':'')+(S.fresh===c.id?'fresh':'')});
-    el.setAttribute('aria-pressed',S.sel.has(c.id));
-    el.onclick=()=>toggleSel(c);
-    hand.append(el);
+function startGame(seats){
+  const old=CUR;
+  CUR=null; old?.abortAll();
+  UI.turnResolve=null; closeModal(null);
+  CUR=createGame(seats);
+  CUR.start();
+}
+function stopGame(){ const old=CUR; CUR=null; old?.abortAll(); }
+
+/* ---------- interface ---------- */
+const UI={view:null,sel:new Set(),turnResolve:null,gameId:null,overShown:null,boomSeq:0,askId:null,lobbyPlayers:[]};
+
+function showScreen(name){
+  ['lobby','room','game'].forEach(id=>$(id).hidden=id!==name);
+  $('quit').hidden=name==='lobby';
+  $('roomtag').hidden=!(name==='game'&&NET.code);
+  $('roomtag').textContent=NET.code?`Sala ${NET.code}`:'';
+}
+
+function uiAsk(req){
+  switch(req.type){
+    case 'turn': return new Promise(r=>{ UI.turnResolve=r; UI.sel.clear(); renderGame(); });
+    case 'nope': return openModal({kicker:'Reação',title:'Usar Protocolo Negado?',body:req.html,
+      buttons:[{label:'Anular',value:true,primary:true},{label:'Deixar passar',value:false}],timeout:req.timeout||NOPE_MS,timeoutValue:false});
+    case 'give': return openModal({kicker:'Pedir Amostra',title:`${esc(req.from)} pede-te uma carta`,body:'Escolhe a carta que vais dar.',
+      cards:(UI.view?.hand||[]).map(c=>({card:c,value:c.id})),pick:true});
+    case 'insert': { const n=req.n|0;
+      return openModal({kicker:'Neutralizada',title:'Onde escondes a poção?',body:`O baralho tem ${n} cartas. A posição 1 é a próxima a sair.`,
+        buttons:[{label:'No topo',value:0,primary:true},{label:'2.ª posição',value:1,disabled:n<1},{label:'3.ª posição',value:2,disabled:n<2},{label:'No meio',value:'mid'},{label:'No fundo',value:'bottom'},{label:'Ao acaso',value:'rand'}]}); }
+    case 'see': return openModal({kicker:'Microscópio',title:'Topo do baralho',body:'A primeira é a próxima a sair.',
+      cards:(req.cards||[]).slice(0,3).filter(c=>DEF[c?.t]).map((c,i)=>({card:c,label:i===0?'1.ª · topo':`${i+1}.ª`})),
+      buttons:[{label:'Fechar',value:true,primary:true}]});
   }
-  if(S.fresh!=null){ const f=hand.querySelector('.fresh'); f?.scrollIntoView({block:'nearest',inline:'nearest'}); S.fresh=null; }
-  if(!me.hand.length) hand.innerHTML='<div class="empty-slot" style="width:auto;padding:0 16px">Sem cartas</div>';
-  // spec + buttons
-  const info=api.selInfo();
+  return Promise.resolve(null);
+}
+function cancelLocalAsk(type){
+  if(type==='turn'){ if(UI.turnResolve){ const r=UI.turnResolve; UI.turnResolve=null; r(null); } renderGame(); }
+  else closeModal(null);
+}
+
+function applyView(view){
+  if(UI.gameId!==view.gameId){
+    if(UI.overOpen){ UI.overOpen=false; closeModal(null); }
+    UI.gameId=view.gameId; UI.sel.clear(); UI.boomSeq=view.boomSeq; UI.overShown=null;
+  }
+  UI.view=view;
+  if(view.boomSeq>UI.boomSeq){ UI.boomSeq=view.boomSeq; boom(); }
+  showScreen('game');
+  renderGame();
+  if(view.over&&UI.overShown!==view.gameId){
+    UI.overShown=view.gameId;
+    const won=view.winner===view.me, wn=view.players[view.winner]?.name||'';
+    const canRestart=NET.role!=='guest';
+    UI.overOpen=true;
+    openModal({kicker:'Fim da experiência',title:won?'Ganhaste!':`${esc(wn)} ganhou`,tone:won?'':'hazard',
+      body:won?'És o último cientista inteiro no laboratório.':(canRestart?'Podes começar outra partida com os mesmos jogadores.':'O anfitrião pode começar outra partida.'),
+      buttons:canRestart?[{label:'Jogar outra vez',value:'again',primary:true},{label:'Ver a mesa',value:'stay'}]:[{label:'Ver a mesa',value:'stay',primary:true}]})
+    .then(v=>{ UI.overOpen=false; if(v==='again'&&CUR) startGame(CUR.seats().map(s=>s.kind==='remote'&&!s.conn?{...s,kind:'bot'}:s)); });
+  }
+}
+
+function boom(){
+  const b=document.createElement('div'); b.className='boom'; document.body.append(b);
+  setTimeout(()=>b.remove(),1000);
+  const app=$('app'); app.classList.remove('shake'); void app.offsetWidth; app.classList.add('shake');
+}
+
+function renderGame(){
+  const V=UI.view; if(!V) return;
+  const myTurn=!!UI.turnResolve, me=V.players[V.me];
+  const order=V.players.map((_,i)=>(V.me+1+i)%V.players.length).filter(i=>i!==V.me);
+  $('rivals').innerHTML=order.map(i=>{
+    const p=V.players[i], turn=V.cur===i&&p.alive&&!V.over;
+    const state=!p.alive?'Explodiu':turn?(V.turns>1?`A jogar · ${V.turns} turnos`:'A jogar'):'À espera';
+    const minis=Array.from({length:Math.min(p.count,12)},()=>'<span class="mini"></span>').join('');
+    return `<div class="station ${turn?'turn':''} ${p.alive?'':'out'}"><div class="row"><span class="nm">${esc(p.name)}${p.bot?'<span class="bot">robô</span>':''}</span><span class="state">${state}</span></div>
+      <div class="minis">${minis}<span class="count">${p.count} ${p.count===1?'carta':'cartas'}</span></div></div>`;
+  }).join('');
+  $('status').textContent = V.over ? 'Experiência terminada.'
+    : !me.alive ? 'Explodiste. Continuas a ver a partida.'
+    : V.cur===V.me ? (myTurn ? (V.turns>1?`É a tua vez. Tens ${V.turns} turnos para jogar.`:'É a tua vez. Joga cartas ou tira uma do baralho.') : 'É a tua vez…')
+    : `${V.players[V.cur].name} está a jogar…`;
+  const deck=$('deck');
+  deck.innerHTML=`<span class="tag"><b>${V.deck}</b>amostras</span>`;
+  deck.disabled=!myTurn; deck.classList.toggle('ready',myTurn);
+  const top=V.discardTop;
+  $('discard').replaceChildren(top&&DEF[top.t]?cardEl(top,{tag:'div',cls:'static'}):Object.assign(document.createElement('div'),{className:'empty-slot',textContent:'Vazio'}));
+  const pct=V.deck?Math.round(V.bombs/V.deck*100):0;
+  $('riskfill').style.width=Math.min(100,pct*2)+'%';
+  $('risktxt').innerHTML=`<span>${V.bombs} ${V.bombs===1?'poção instável':'poções instáveis'} no baralho</span><span>Risco na próxima carta: ${pct}%</span>`;
+  $('log').innerHTML=V.log.map(e=>`<li class="${e.kind==='hazard'?'hazard':e.kind==='muted'?'muted':''}"><span class="t">T${String(e.t).padStart(2,'0')}</span><span>${e.html}</span></li>`).join('');
+  $('me').classList.toggle('turn',myTurn);
+  $('mytitle').textContent=`A tua mão · ${me.name}`;
+  const hand=V.hand.filter(c=>DEF[c.t]);
+  [...UI.sel].forEach(id=>{ if(!hand.some(c=>c.id===id)) UI.sel.delete(id); });
+  const defs=hand.filter(c=>c.t==='defuse').length;
+  $('turninfo').textContent=!me.alive?'Fora de jogo':myTurn?(V.turns>1?`Tua vez · ${V.turns} turnos`:'Tua vez'):`${hand.length} cartas · ${defs} ${defs===1?'neutralizador':'neutralizadores'}`;
+  const handEl=$('hand'); handEl.innerHTML='';
+  for(const c of hand){
+    const el=cardEl(c,{cls:(UI.sel.has(c.id)?'sel ':'')+(V.fresh===c.id?'fresh':'')});
+    el.setAttribute('aria-pressed',UI.sel.has(c.id));
+    el.onclick=()=>toggleSel(c);
+    handEl.append(el);
+  }
+  if(V.fresh!=null){ handEl.querySelector('.fresh')?.scrollIntoView({block:'nearest',inline:'nearest'}); V.fresh=null; }
+  if(!hand.length) handEl.innerHTML='<div class="empty-slot" style="width:auto;padding:0 16px">Sem cartas</div>';
+  const info=validPlay(hand,[...UI.sel]);
   const last=info.cards[info.cards.length-1];
-  $('spec').innerHTML = last
+  $('spec').innerHTML=last
     ? `<b>${DEF[last.t].name}</b> · ${DEF[last.t].d}${info.msg?`<br><span class="warn">${info.msg}</span>`:''}`
     : (myTurn?'Toca numa carta para a ver e selecionar. Quando acabares, tira uma carta do baralho para terminar o turno.':'Toca numa carta para ler o que faz.');
   $('play').disabled=!(myTurn&&info.ok);
@@ -677,42 +874,216 @@ function render(S,api){
 }
 
 function toggleSel(c){
-  const S=CUR.S, me=S.players[0];
-  if(S.sel.has(c.id)) S.sel.delete(c.id);
+  const hand=UI.view.hand;
+  if(UI.sel.has(c.id)) UI.sel.delete(c.id);
   else{
-    const cur=[...S.sel].map(id=>me.hand.find(x=>x.id===id)).filter(Boolean);
-    if(cur.length===1 && isRat(c.t) && cur[0].t===c.t) S.sel.add(c.id);
-    else { S.sel.clear(); S.sel.add(c.id); }
+    const cur=[...UI.sel].map(id=>hand.find(x=>x.id===id)).filter(Boolean);
+    if(cur.length===1&&isRat(c.t)&&cur[0].t===c.t) UI.sel.add(c.id);
+    else{ UI.sel.clear(); UI.sel.add(c.id); }
   }
-  render(S,CUR);
+  renderGame();
 }
+function sendTurn(act){ if(!UI.turnResolve) return; const r=UI.turnResolve; UI.turnResolve=null; UI.sel.clear(); renderGame(); r(act); }
 
 $('play').onclick=async()=>{
-  const api=CUR; if(!api.waitHuman) return;
-  const info=api.selInfo(); if(!info.ok) return;
+  if(!UI.turnResolve) return;
+  const V=UI.view, info=validPlay(V.hand,[...UI.sel]); if(!info.ok) return;
   let target;
   if(info.needsTarget){
-    const S=api.S;
-    const opts=api.targets().map(i=>({label:`${S.players[i].name} · ${S.players[i].hand.length}`,value:i,disabled:!S.players[i].hand.length}));
+    const opts=V.players.map((p,i)=>({p,i})).filter(({p,i})=>i!==V.me&&p.alive)
+      .map(({p,i})=>({label:`${p.name} · ${p.count}`,value:i,disabled:!p.count}));
     target=await openModal({kicker:info.cards.length===2?'Par de cobaias':'Pedir Amostra',title:'Contra quem?',
       body:info.cards.length===2?'Roubas uma carta ao acaso.':'O jogador escolhe a carta que te dá.',
       buttons:[...opts,{label:'Cancelar',value:null}]});
-    if(target==null||CUR!==api||!api.waitHuman) return;
+    if(target==null||!UI.turnResolve) return;
   }
-  api.waitHuman({type:'play',ids:info.cards.map(c=>c.id),target});
+  sendTurn({type:'play',ids:info.cards.map(c=>c.id),target});
 };
-const humanDraw=()=>{ if(CUR?.waitHuman && !modalResolve) CUR.waitHuman({type:'draw'}); };
+const humanDraw=()=>{ if(UI.turnResolve&&!modalResolve) sendTurn({type:'draw'}); };
 $('draw').onclick=humanDraw; $('deck').onclick=humanDraw;
 
-function newGame(){
-  const old=CUR;
-  CUR=createGame(+$('nb').value);
-  closeModal(null);
-  if(old?.waitHuman) old.waitHuman({type:'abort'});
-  render(CUR.S,CUR);
-  CUR.start();
+/* ---------- rede (PeerJS, ligação direta entre navegadores) ---------- */
+const PREFIX='lab-instavel-v1-';
+const CODE_ABC='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const NET={role:null,peer:null,code:null,guests:[],hostConn:null,started:false};
+
+function safeSend(conn,msg){ try{ if(conn&&conn.open) conn.send(msg); }catch(e){} }
+function cleanName(s){ return String(s||'').replace(/\s+/g,' ').trim().slice(0,16)||'Cientista'; }
+function myName(){ return cleanName($('pname').value); }
+function lobbyMsg(t,ok){ const m=$('lobbymsg'); m.textContent=t||''; m.classList.toggle('ok',!!ok); }
+function errText(err){
+  const t=err?.type;
+  if(t==='peer-unavailable') return 'Não existe nenhuma sala aberta com esse código.';
+  if(t==='browser-incompatible') return 'Este navegador não suporta jogo online. Experimenta o Chrome, Edge ou Firefox.';
+  if(t==='network'||t==='server-error'||t==='socket-error'||t==='socket-closed') return 'Sem ligação ao servidor de salas. Verifica a internet e tenta outra vez.';
+  return 'Falhou a ligação ('+(t||'erro')+'). Tenta outra vez.';
 }
-$('newgame').onclick=newGame;
+function teardown(){
+  stopGame();
+  try{ NET.peer?.destroy(); }catch(e){}
+  Object.assign(NET,{role:null,peer:null,code:null,guests:[],hostConn:null,started:false});
+  UI.view=null; UI.turnResolve=null; closeModal(null);
+}
+function backToLobby(msg){ teardown(); showScreen('lobby'); lobbyMsg(msg||''); }
+function needPeer(){
+  if(window.Peer) return true;
+  lobbyMsg('Não foi possível carregar o módulo de jogo online. Verifica a internet e recarrega a página.');
+  return false;
+}
+
+/* anfitrião */
+function hostRoom(){
+  if(!needPeer()) return;
+  teardown(); saveName();
+  const code=Array.from({length:5},()=>CODE_ABC[rnd(CODE_ABC.length)]).join('');
+  const peer=new Peer(PREFIX+code);
+  Object.assign(NET,{role:'host',peer,code});
+  lobbyMsg('A criar a sala…',true);
+  peer.on('open',()=>{ lobbyMsg(''); showScreen('room'); renderRoom(); });
+  peer.on('disconnected',()=>{ try{ if(!peer.destroyed) peer.reconnect(); }catch(e){} });
+  peer.on('error',err=>{
+    if(err.type==='unavailable-id'&&!NET.started){ hostRoom(); return; }
+    if(err.type==='peer-unavailable') return;
+    if(!NET.started) backToLobby(errText(err));
+  });
+  peer.on('connection',conn=>{
+    conn.on('open',()=>{
+      if(NET.started||1+NET.guests.length>=4){
+        safeSend(conn,{type:'refused',reason:NET.started?'Essa partida já começou.':'Essa sala já está cheia.'});
+        setTimeout(()=>{ try{conn.close()}catch(e){} },600); return;
+      }
+      conn._seen=Date.now();
+      NET.guests.push({conn,name:conn._hello||'A entrar…'}); renderRoom(); broadcastLobby();
+    });
+    conn.on('data',m=>onHostData(conn,m));
+    conn.on('close',()=>onGuestClose(conn));
+    conn.on('error',()=>onGuestClose(conn));
+  });
+}
+function onHostData(conn,m){
+  conn._seen=Date.now();
+  if(!m||typeof m!=='object'||m.type==='ping') return;
+  const g=NET.guests.find(x=>x.conn===conn);
+  if(!g){ if(m.type==='hello') conn._hello=cleanName(m.name); return; }
+  if(m.type==='hello'&&!NET.started){ g.name=cleanName(m.name); renderRoom(); broadcastLobby(); }
+  else if(m.type==='answer') CUR?.onAnswer(conn,m.id,m.value);
+}
+/* sinal de presença: quem fica 15 s sem dar sinal é dado como desligado */
+setInterval(()=>{
+  if(NET.role==='host') NET.guests.forEach(g=>safeSend(g.conn,{type:'ping'}));
+  if(NET.role==='host') NET.guests.slice().forEach(g=>{ if(Date.now()-(g.conn._seen||0)>15000){ try{g.conn.close()}catch(e){} onGuestClose(g.conn); } });
+  if(NET.role==='guest'&&NET.hostConn?.open){
+    safeSend(NET.hostConn,{type:'ping'});
+    if(NET.hostConn._seen&&Date.now()-NET.hostConn._seen>15000) hostLost();
+  }
+},3000);
+function onGuestClose(conn){
+  const i=NET.guests.findIndex(x=>x.conn===conn); if(i<0) return;
+  NET.guests.splice(i,1);
+  if(!NET.started){ renderRoom(); broadcastLobby(); }
+  else CUR?.onDisconnect(conn);
+}
+function broadcastLobby(){
+  const players=[myName(),...NET.guests.map(g=>g.name)];
+  NET.guests.forEach(g=>safeSend(g.conn,{type:'lobby',code:NET.code,players}));
+}
+function renderRoom(){
+  const host=NET.role==='host';
+  $('roomcode').textContent=NET.code||'';
+  const names=host?[myName(),...NET.guests.map(g=>g.name)]:UI.lobbyPlayers;
+  const seats=$('seats'); seats.innerHTML='';
+  names.forEach((n,i)=>{ const li=document.createElement('li');
+    li.append(Object.assign(document.createElement('span'),{textContent:n}));
+    li.append(Object.assign(document.createElement('span'),{className:'k',textContent:i===0?'Anfitrião':(host||n!==myName()?'Ligado':'Tu')}));
+    seats.append(li); });
+  for(let i=names.length;i<4;i++){ const li=document.createElement('li'); li.className='empty'; li.textContent='Lugar livre'; seats.append(li); }
+  $('hostctrls').hidden=!host;
+  if(host){
+    const humans=names.length, sel=$('nbots'), prev=+sel.value||0, max=4-humans, min=humans<2?1:0;
+    sel.innerHTML=''; for(let k=min;k<=max;k++) sel.append(new Option(String(k),String(k)));
+    sel.value=String(Math.max(min,Math.min(prev,max)));
+    $('roomhint').textContent=humans<2
+      ? 'Envia o código aos teus colegas. Eles abrem este mesmo site e escolhem "Entrar numa sala". Podes também começar já com robôs.'
+      : 'Quando estiverem todos, carrega em Começar partida.';
+  } else $('roomhint').textContent='Estás ligado. A partida começa quando o anfitrião carregar em Começar.';
+}
+function startRoom(){
+  if(NET.role!=='host') return;
+  const bots=+$('nbots').value||0;
+  if(1+NET.guests.length+bots<2) return;
+  NET.started=true;
+  const used=new Set([myName(),...NET.guests.map(g=>g.name)]);
+  const botNames=BOTS.filter(n=>!used.has(n)).slice(0,bots);
+  startGame([{name:myName(),kind:'local'},...NET.guests.map(g=>({name:g.name,kind:'remote',conn:g.conn})),...botNames.map(n=>({name:n,kind:'bot'}))]);
+}
+
+/* convidado */
+function joinRoom(){
+  const code=$('code').value.toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(code.length!==5){ lobbyMsg('O código tem 5 letras ou números.'); return; }
+  if(!needPeer()) return;
+  teardown(); saveName();
+  const peer=new Peer();
+  Object.assign(NET,{role:'guest',peer,code});
+  lobbyMsg('A ligar à sala…',true);
+  peer.on('open',()=>{
+    const conn=peer.connect(PREFIX+code,{reliable:true,serialization:'json'});
+    NET.hostConn=conn;
+    const t=setTimeout(()=>{ if(!conn.open&&NET.hostConn===conn) backToLobby('Não foi possível ligar à sala. Confirma o código e tenta outra vez.'); },15000);
+    conn.on('open',()=>{ clearTimeout(t); lobbyMsg(''); safeSend(conn,{type:'hello',name:myName()}); UI.lobbyPlayers=[]; showScreen('room'); renderRoom(); });
+    conn.on('data',onGuestData);
+    conn.on('close',()=>{ if(NET.hostConn===conn) hostLost(); });
+  });
+  peer.on('error',err=>{ if(NET.role==='guest'&&!UI.view) backToLobby(errText(err)); });
+}
+function onGuestData(m){
+  if(NET.hostConn) NET.hostConn._seen=Date.now();
+  if(!m||typeof m!=='object'||m.type==='ping') return;
+  switch(m.type){
+    case 'lobby': if(Array.isArray(m.players)){ UI.lobbyPlayers=m.players.map(cleanName); if(!UI.view) renderRoom(); } break;
+    case 'refused': backToLobby(String(m.reason||'A sala recusou a ligação.')); break;
+    case 'view': if(m.view&&Array.isArray(m.view.players)) applyView(m.view); break;
+    case 'ask': {
+      const id=m.id; UI.askId=id;
+      uiAsk(m.req||{}).then(v=>{ if(UI.askId===id) UI.askId=null; safeSend(NET.hostConn,{type:'answer',id,value:v}); });
+      break;
+    }
+    case 'cancel':
+      if(UI.askId===m.id){ UI.askId=null; if(UI.turnResolve) cancelLocalAsk('turn'); else closeModal(null); }
+      break;
+  }
+}
+function hostLost(){
+  const inGame=!!UI.view;
+  backToLobby(inGame?'O anfitrião saiu, por isso a partida terminou.':'A sala foi fechada pelo anfitrião.');
+}
+
+/* sozinho */
+function playSolo(){
+  teardown(); saveName();
+  NET.role='solo';
+  const n=+$('nb').value;
+  startGame([{name:myName(),kind:'local'},...BOTS.slice(0,n).map(b=>({name:b,kind:'bot'}))]);
+}
+
+function saveName(){ try{ localStorage.setItem('lab-nome',myName()); }catch(e){} }
+try{ const n=localStorage.getItem('lab-nome'); if(n) $('pname').value=n; }catch(e){}
+
+$('host').onclick=hostRoom;
+$('join').onclick=joinRoom;
+$('code').addEventListener('keydown',e=>{ if(e.key==='Enter') joinRoom(); });
+$('solo').onclick=playSolo;
+$('startroom').onclick=startRoom;
+$('quit').onclick=()=>backToLobby('');
+$('copycode').onclick=async()=>{
+  const b=$('copycode');
+  try{ await navigator.clipboard.writeText(NET.code); b.textContent='Copiado'; }
+  catch(e){ const r=document.createRange(); r.selectNodeContents($('roomcode')); const s=getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent='Seleciona e copia'; }
+  setTimeout(()=>b.textContent='Copiar código',1800);
+};
+const hashCode=(location.hash||'').slice(1).toUpperCase();
+if(/^[A-Z0-9]{5}$/.test(hashCode)) $('code').value=hashCode;
+showScreen('lobby');
 
 // rules reference
 $('ref').innerHTML='';
@@ -729,8 +1100,6 @@ $('ref').innerHTML='';
   ['ratA','ratB','ratM','ratT','ratC'].forEach(t=>row.append(cardEl({t},{tag:'div',cls:'static'})));
   it.append(row); $('ref').append(it);
 }
-
-newGame();
 </script>
 </body>
 </html>
